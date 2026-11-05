@@ -73,7 +73,7 @@ test('diversification : priorité au secteur non représenté',()=>{
 });
 test('rachat de bâtiment IA : propriété et argent transférés',()=>{
  const g=game();
- g.run("agent('mercure').buildings.push({id:'mercure-extra',type:'lumber',pos:60,wage:20});agent('atlas').cash=500");
+ g.run("agent('mercure').buildings.push({id:'mercure-extra',type:chooseExpansionType(agent('atlas')),pos:60,wage:20});agent('atlas').cash=500");
  const before=g.run("agent('mercure').cash");
  assert.equal(g.run("aiAcquireBuilding('atlas')"),true);
  assert.equal(g.run("agent('atlas').buildings.some(b=>b.id==='mercure-extra')"),true);
