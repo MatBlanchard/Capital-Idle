@@ -80,3 +80,26 @@ test('rachat de bâtiment IA : propriété et argent transférés',()=>{
  assert.equal(g.run("agent('atlas').buildings.some(b=>b.id==='mercure-extra')"),true);
  assert.equal(g.run("agent('mercure').cash"),before+250);
 });
+
+test('un professeur et un proviseur préexistent',()=>{
+ const g=game();
+ assert.equal(g.run("activeSchoolStaff('teacher').length"),1);
+ assert.equal(g.run("activeSchoolStaff('principal').length"),1);
+});
+test('un professeur formé peut enseigner et augmenter les places',()=>{
+ const g=game();g.run("startGame('farm')");
+ g.run("agent('player').stock.wood=20;agent('player').stock.ore=10;state.selected=60;build('school');agent('player').cash=500");
+ const id=g.run("candidates().find(w=>w.qualification==='worker').id");
+ g.run("trainWorker('"+id+"','teacher');trainingCycle();trainingCycle();appointSchoolStaff('"+id+"','teacher')");
+ assert.equal(g.run("activeSchoolStaff('teacher').length"),2);
+ assert.equal(g.run("availableSchoolSeats()"),4);
+});
+test('le proviseur est nécessaire pour recruter les cadres',()=>{
+ const g=game();g.run("startGame('farm')");
+ const id=g.run("candidates().find(w=>w.qualification==='worker').id");
+ g.run("state.workers.find(w=>w.id==='"+id+"').qualification='hr';state.workers.find(w=>w.schoolRole==='principal').schoolRole=null");
+ g.run("recruitExecutive('"+id+"','hr')");
+ assert.equal(g.run("agent('player').managers.hr.length"),0);
+ g.run("state.workers.find(w=>w.qualification==='principal').schoolRole='principal';recruitExecutive('"+id+"','hr')");
+ assert.equal(g.run("agent('player').managers.hr.length"),1);
+});
