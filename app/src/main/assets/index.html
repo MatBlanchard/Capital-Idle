@@ -41,7 +41,41 @@ function tileClick(i){state.selected=i;let b=allBuildings().find(x=>x.pos===i);i
 function allBuildings(){return Object.values(state.agents).flatMap(a=>a.buildings.map(b=>({...b,owner:a.id})))}
 function build(type){let p=state.selected,t=TYPES[type],a=agent('player');if(!t||houseAt(p)||p%8===3||state.workers.some(w=>w.alive&&w.home===p)||allBuildings().some(b=>b.pos===p))return toast('Terrain indisponible');if(Object.entries(t.cost).some(([k,v])=>a.stock[k]<v))return toast('Matériaux insuffisants');for(let [k,v]of Object.entries(t.cost))a.stock[k]=rnd(a.stock[k]-v);a.buildings.push({id:'player-'+state.nextBuilding++,type,pos:p,wage:20});note('Construction : '+t.name);save();render()}
 function wage(id,delta){let b=agent('player').buildings.find(x=>x.id===id);if(!b)return;b.wage=Math.max(0,rnd(b.wage+delta));save();render()}
-function jobAssignment(){let bs=allBuildings(),occupied={};for(let w of state.workers){if(!w.alive||!w.adult){w.job=null;continue}let best=null,utility=0;for(let b of bs){let n=occupied[b.id]||0;if(n>=TYPES[b.type].jobs)continue;let a=agent(b.owner);let u=b.wage-dist(w.home,b.pos)*.6;if(a.cash<b.wage/24)u-=4;if(u>utility){utility=u;best=b}}w.job=best?best.id:null;if(best)occupied[best.id]=(occupied[best.id]||0)+1}}
+function jobAssignment(){
+ // Aucun recrutement spontané. Les contrats existants sont conservés.
+ for(const w of state.workers)if(!w.alive||!w.adult){w.job=null;w.managerFor=null}
+ for(const a of Object.values(state.agents)){
+  initAgent(a);
+  for(const role of ['hr','trader'])a.managers[role]=a.managers[role].filter(id=>state.workers.some(w=>w.id===id&&w.alive&&w.managerFor===a.id&&w.managerRole===role));
+ }
+}
+function hireWorker(ownerId,workerId,buildingId){
+ const a=agent(ownerId),w=state.workers.find(w=>w.id===workerId),b=a?.buildings.find(b=>b.id===buildingId);
+ if(!a||!canHire(a)||!w||!w.alive||!w.adult||w.job||w.managerFor||w.training||!b||b.type==='school'||employedCount(b)>=TYPES[b.type].jobs||b.wage<w.expectedWage)return false;
+ w.job=b.id;note(a.name+' recrute '+w.id+' à '+fmt(b.wage)+' €/jour');return true;
+}
+function hirePlayer(workerId,buildingId){if(!hireWorker('player',workerId,buildingId))return toast('Recrutement impossible : RH, salaire ou poste insuffisant');save();render()}
+function trainWorker(workerId,role){
+ const w=state.workers.find(w=>w.id===workerId),a=agent('player');
+ if(!['hr','trader'].includes(role)||!w||!w.alive||!w.adult||w.job||w.managerFor||w.training||!a.buildings.some(b=>b.type==='school')||availableSchoolSeats()<=0||a.cash<50)return toast('Formation impossible : école, place ou 50 € manquants');
+ a.cash=rnd(a.cash-50);w.training={owner:'player',role,days:2};note('Formation '+role+' commencée pour '+w.id);save();render();
+}
+function trainingCycle(){
+ for(const w of state.workers){if(!w.alive||!w.training)continue;w.training.days--;
+ if(w.training.days<=0){w.qualification=w.training.role;note(w.id+' diplômé : '+w.qualification);w.training=null}}
+}
+function appointManager(workerId,role){
+ const a=agent('player'),w=state.workers.find(w=>w.id===workerId);
+ if(!w||!w.alive||w.job||w.managerFor||w.training||w.qualification!==role)return toast('Cadre qualifié et disponible requis');
+ w.managerFor='player';w.managerRole=role;a.managers[role].push(w.id);note(w.id+' devient '+(role==='hr'?'responsable RH':'gestionnaire de bourse'));save();render();
+}
+function aiRecruit(){
+ for(const id of ['atlas','mercure','forge']){
+ const a=agent(id);if(!canHire(a))continue;
+ for(const b of a.buildings){if(b.type==='school')continue;let w=candidates().filter(w=>w.expectedWage<=b.wage).sort((x,y)=>(y.productivity-x.productivity)||dist(x.home,b.pos)-dist(y.home,b.pos))[0];
+ if(w)hireWorker(id,w.id,b.id)}
+ }
+}
 function houseAt(pos){return state.houses.find(h=>h.pos===pos)}
 function buildHouse(){let p=state.selected,a=agent('player');if(p%8===3||allBuildings().some(b=>b.pos===p)||houseAt(p)||state.workers.some(w=>w.alive&&w.home===p))return toast('Terrain indisponible');if(a.stock.wood<8||a.stock.ore<3)return toast('Il faut 8 bois et 3 minerai');a.stock.wood=rnd(a.stock.wood-8);a.stock.ore=rnd(a.stock.ore-3);state.houses.push({id:'h'+state.nextHouse++,pos:p,owner:'player',rent:8,tenant:null});note('Maison construite');save();render()}
 function setRent(id,delta){let h=state.houses.find(h=>h.id===id&&h.owner==='player');if(!h)return;h.rent=Math.max(0,rnd(h.rent+delta));save();render()}
@@ -50,7 +84,7 @@ function daily(){
  let day=Math.floor(state.gameMs/DAY_MS);for(let a of Object.values(state.agents))if(a.alive)a.cash=rnd(a.cash+100);
  let dead=0;for(let w of state.workers){if(!w.alive)continue;w.cash=rnd(w.cash+100);if(!w.adult&&day-w.bornDay>=2)w.adult=true;
  if(w.food>=1){w.food=rnd(w.food-1);w.health=3}else{w.health--;if(w.health<=0){w.alive=false;w.job=null;dead++;cancelWorkerOrders(w.id)}}}
- if(dead)note(dead+' travailleur(s) mort(s) de faim');housingCycle();
+ if(dead)note(dead+' travailleur(s) mort(s) de faim');jobAssignment();trainingCycle();housingCycle();
  reproduce(day);note('Jour '+(day+1)+' : revenu de base +100 € par agent vivant');jobAssignment();aiCycle();
 }
 function reproduce(day){
@@ -118,7 +152,7 @@ function aiCycle(){
    if(qty>=1)placeOrder(w.id,'buy','food',qty,price,false);
   }
  }
- jobAssignment();
+ jobAssignment();aiRecruit();
 }
 function simulate(delta){if(!state.started)return;let remaining=Math.min(delta,DAY_MS*7);while(remaining>0){let step=Math.min(remaining,150000,DAY_MS-state.gameMs%DAY_MS);let days=step/DAY_MS;let bs=allBuildings();for(let b of bs){let a=agent(b.owner),staff=state.workers.filter(w=>w.alive&&w.job===b.id);let paid=0;for(let w of staff){let pay=rnd(b.wage*days);if(a.cash+1e-6>=pay){a.cash=rnd(a.cash-pay);w.cash=rnd(w.cash+pay);paid++}}if(paid)a.stock[TYPES[b.type].out]=rnd(a.stock[TYPES[b.type].out]+TYPES[b.type].rate*staff.slice(0,paid).reduce((sum,w)=>sum+w.productivity,0)*days)}state.gameMs+=step;remaining-=step;if(Math.abs(state.gameMs%DAY_MS)<1)daily()}}
 function advance(){let now=Date.now(),delta=Math.max(0,now-state.lastReal);state.lastReal=now;if(!state.started)return;simulate(delta);let cycle=Math.floor(state.gameMs/150000);if(cycle>state.lastAiCycle){state.lastAiCycle=cycle;aiCycle()}render();save()}
@@ -135,5 +169,5 @@ async function importSave(ev){let file=ev.target.files?.[0];if(!file)return;try{
 function resetGame(){if(!confirm('Effacer la partie actuelle ? Exportez votre sauvegarde avant.'))return;state=fresh();save();tab('world')}
 // Les sauvegardes v0.3 sont migrées sans perdre la partie ; v0.2 reste intacte.
 if(!localStorage.getItem(KEY)&&!localStorage.getItem('capital-idle-mobile-v4')&&!localStorage.getItem('capital-idle-mobile-v3')&&localStorage.getItem(LEGACY))state.log.unshift('Une ancienne partie v0.2 a été détectée : elle reste conservée séparément.');
-window.startGame=startGame;window.tab=tab;window.buildHouse=buildHouse;window.setRent=setRent;render();if(state.started){let elapsed=Date.now()-state.lastReal;if(elapsed>0){simulate(elapsed);state.lastReal=Date.now();aiCycle();state.lastAiCycle=Math.floor(state.gameMs/150000);save();render()}}setInterval(advance,STEP_MS);document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else advance()});
+window.hirePlayer=hirePlayer;window.trainWorker=trainWorker;window.appointManager=appointManager;window.startGame=startGame;window.tab=tab;window.buildHouse=buildHouse;window.setRent=setRent;render();if(state.started){let elapsed=Date.now()-state.lastReal;if(elapsed>0){simulate(elapsed);state.lastReal=Date.now();aiCycle();state.lastAiCycle=Math.floor(state.gameMs/150000);save();render()}}setInterval(advance,STEP_MS);document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else advance()});
 </script></body></html>
