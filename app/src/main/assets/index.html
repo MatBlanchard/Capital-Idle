@@ -26,7 +26,19 @@ state=load();
 function note(msg){state.log.unshift('J'+(Math.floor(state.gameMs/DAY_MS)+1)+' : '+msg);state.log=state.log.slice(0,65)}
 function save(){state.lastReal=Date.now();try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){toast('Stockage indisponible : exportez un JSON')}}
 function toast(msg){$('toast').textContent=msg;$('toast').style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').style.display='none',2600)}
-function startGame(type){if(state.started||!TYPES[type])return;state.agents.player.buildings=[{id:'player-1',type,pos:POS[0],wage:20}];state.started=true;state.lastReal=Date.now();$('start').classList.add('hidden');note('Vous avez choisi : '+TYPES[type].name);aiSeed();aiCycle();state.lastAiCycle=Math.floor(state.gameMs/150000);save();render()}
+function startGame(type){if(state.started||!TYPES[type])return;state.agents.player.buildings=[{id:'player-1',type,pos:POS[0],wage:20}];state.started=true;state.lastReal=Date.now();$('start').classList.add('hidden');note('Vous avez choisi : '+TYPES[type].name);aiSeed();seedManagers();aiCycle();state.lastAiCycle=Math.floor(state.gameMs/150000);save();render()}
+function seedManagers(){
+ // Les entreprises IA démarrent avec leurs propres cadres diplômés et peuvent recruter.
+ for(const id of ['atlas','mercure','forge']){
+  const a=agent(id);
+  if(a.managers.hr.length||a.managers.trader.length)continue;
+  for(const role of ['hr','trader']){
+   const w=candidates()[0];if(!w)break;
+   w.qualification=role;w.managerFor=id;w.managerRole=role;a.managers[role].push(w.id);
+  }
+ }
+ aiRecruit();
+}
 function aiSeed(){// Capitalistes IA disposent chacun d'un bâtiment et produisent manuellement au démarrage.
  for(let id of ['atlas','mercure','forge']){let a=state.agents[id],b=a.buildings[0];a.stock[TYPES[b.type].out]+=12;placeOrder(id,'sell',TYPES[b.type].out,8,12,false)}
 }
@@ -137,7 +149,7 @@ function aiCycle(){
    let qty=Math.min(target-a.stock[item],Math.floor(Math.max(0,a.cash-30)/price),6);
    if(qty>=1)placeOrder(id,'buy',item,qty,price,false);
   }
-  if(bs.length<4&&a.cash>=140){let options=Object.entries(TYPES).filter(([k,t])=>Object.entries(t.cost).every(([r,n])=>a.stock[r]>=n));
+  if(bs.length<4&&a.cash>=140){let options=Object.entries(TYPES).filter(([k])=>k!=='school').filter(([k,t])=>Object.entries(t.cost).every(([r,n])=>a.stock[r]>=n));
    let free=HOMES.filter(h=>!state.workers.some(w=>w.alive&&w.home===h)&&!allBuildings().some(b=>b.pos===h)&&!houseAt(h));
    if(options.length&&free.length){let [type,t]=options.sort((x,y)=>bs.filter(b=>b.type===x[0]).length-bs.filter(b=>b.type===y[0]).length)[0];
     for(let [r,n]of Object.entries(t.cost))a.stock[r]=rnd(a.stock[r]-n);
@@ -173,6 +185,6 @@ function exportSave(){save();if(window.AndroidSave&&window.AndroidSave.exportJso
 async function importSave(ev){let file=ev.target.files?.[0];if(!file)return;try{let x=JSON.parse(await file.text()),s=x.format==='capital-idle-save'?x.data:x;if(!valid(s))throw Error('Format incompatible');s=migrate(s);if(!confirm('Remplacer la partie actuelle par cette sauvegarde ?'))return;state=s;state.lastReal=Date.now();save();tab('world');toast('Sauvegarde importée')}catch(e){toast('Import impossible : '+e.message)}finally{ev.target.value=''}}
 function resetGame(){if(!confirm('Effacer la partie actuelle ? Exportez votre sauvegarde avant.'))return;state=fresh();save();tab('world')}
 // Les sauvegardes v0.3 sont migrées sans perdre la partie ; v0.2 reste intacte.
-if(!localStorage.getItem(KEY)&&!localStorage.getItem('capital-idle-mobile-v4')&&!localStorage.getItem('capital-idle-mobile-v3')&&localStorage.getItem(LEGACY))state.log.unshift('Une ancienne partie v0.2 a été détectée : elle reste conservée séparément.');
+if(!localStorage.getItem(KEY)&&!localStorage.getItem('capital-idle-mobile-v5')&&!localStorage.getItem('capital-idle-mobile-v4')&&!localStorage.getItem('capital-idle-mobile-v3')&&localStorage.getItem(LEGACY))state.log.unshift('Une ancienne partie v0.2 a été détectée : elle reste conservée séparément.');
 window.hirePlayer=hirePlayer;window.trainWorker=trainWorker;window.appointManager=appointManager;window.startGame=startGame;window.tab=tab;window.buildHouse=buildHouse;window.setRent=setRent;render();if(state.started){let elapsed=Date.now()-state.lastReal;if(elapsed>0){simulate(elapsed);state.lastReal=Date.now();aiCycle();state.lastAiCycle=Math.floor(state.gameMs/150000);save();render()}}setInterval(advance,STEP_MS);document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else advance()});
 </script></body></html>
