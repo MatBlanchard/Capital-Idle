@@ -29,7 +29,7 @@ test('école, formation et recrutement après diplôme',()=>{
  assert.equal(g.run("state.agents.player.buildings.some(b=>b.type==='school')"),true);
  g.run("trainWorker(candidates()[0].id,'hr');trainingCycle();trainingCycle()");
  assert.equal(g.run("state.workers.some(w=>w.qualification==='hr')"),true);
- g.run("appointManager(state.workers.find(w=>w.qualification==='hr').id,'hr')");
+ g.run("appointManager(state.workers.find(w=>w.qualification==='hr'&&!w.managerFor).id,'hr')");
  assert.equal(g.run("canHire(agent('player'))"),true);
  g.run("state.agents.player.buildings[0].wage=60");
  assert.equal(g.run("hireWorker('player',candidates()[0].id,'player-1')"),true);
