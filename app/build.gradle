@@ -9,6 +9,21 @@ android {
         versionCode 1
         versionName '0.5.0'
     }
-    buildTypes { release { minifyEnabled false } }
+    signingConfigs {
+        permanent {
+            if (System.getenv('CAPITAL_IDLE_KEYSTORE')) {
+                storeFile file(System.getenv('CAPITAL_IDLE_KEYSTORE'))
+                storePassword System.getenv('CAPITAL_IDLE_STORE_PASSWORD')
+                keyAlias 'capitalidle'
+                keyPassword System.getenv('CAPITAL_IDLE_STORE_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.permanent
+        }
+    }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
