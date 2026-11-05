@@ -104,6 +104,8 @@ public class MainActivity extends Activity {
   }
 
 
+  private void updateStatus(String message) { runOnUiThread(() -> Toast.makeText(this, message, Toast.LENGTH_LONG).show()); }
+
   private void checkForUpdates() {
     new Thread(() -> {
       HttpURLConnection connection = null;
@@ -113,7 +115,7 @@ public class MainActivity extends Activity {
         connection.setReadTimeout(10000);
         connection.setRequestProperty("Accept", "application/vnd.github+json");
         connection.setRequestProperty("User-Agent", "CapitalIdle-Android");
-        if (connection.getResponseCode() != 200) return;
+        if (connection.getResponseCode() != 200) { updateStatus("Vérification impossible : GitHub HTTP " + connection.getResponseCode()); return; }
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (InputStream in = connection.getInputStream()) {
           byte[] buffer = new byte[8192]; int n;
@@ -124,12 +126,12 @@ public class MainActivity extends Activity {
         }
         JSONObject release = new JSONObject(out.toString("UTF-8"));
         String tag = release.optString("tag_name");
-        if (!tag.startsWith("build-")) return;
+        if (!tag.startsWith("build-")) { updateStatus("Version publiée non reconnue : " + tag); return; }
         int remote = Integer.parseInt(tag.substring(6));
         int local = getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
-        if (remote <= local) return;
+        if (remote <= local) { updateStatus("Capital Idle est à jour (version " + local + ")"); return; }
         JSONArray assets = release.optJSONArray("assets");
-        if (assets == null) return;
+        if (assets == null) { updateStatus("Version disponible, mais aucun APK publié"); return; }
         for (int i = 0; i < assets.length(); i++) {
           JSONObject asset = assets.getJSONObject(i);
           if ("CapitalIdle.apk".equals(asset.optString("name"))) {
@@ -140,8 +142,9 @@ public class MainActivity extends Activity {
             return;
           }
         }
-      } catch (Exception ignored) {
-        // Sans connexion, le jeu continue à fonctionner hors ligne.
+        updateStatus("Nouvelle version détectée, mais fichier CapitalIdle.apk introuvable");
+      } catch (Exception e) {
+        updateStatus("Vérification des mises à jour impossible : " + e.getClass().getSimpleName());
       } finally {
         if (connection != null) connection.disconnect();
       }
@@ -192,7 +195,7 @@ public class MainActivity extends Activity {
       }
     };
     IntentFilter filter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-    if (Build.VERSION.SDK_INT >= 33) registerReceiver(updateReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+    if (Build.VERSION.SDK_INT >= 33) registerReceiver(updateReceiver, filter, Context.RECEIVER_EXPORTED);
     else registerReceiver(updateReceiver, filter);
   }
 
