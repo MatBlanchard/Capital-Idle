@@ -59,3 +59,23 @@ test('RH automatise le recrutement du joueur sur les postes vacants',()=>{
  g.run("aiRecruit()");
  assert.ok(g.run("state.workers.filter(w=>w.job==='player-1').length")>0);
 });
+
+test('neuf entreprises IA réparties sur trois secteurs',()=>{
+ const g=game();
+ assert.equal(g.run('AI_IDS.length'),9);
+ assert.equal(g.run("AI_IDS.filter(id=>agent(id).buildings[0].type==='farm').length"),3);
+ assert.equal(g.run("AI_IDS.filter(id=>agent(id).buildings[0].type==='lumber').length"),3);
+ assert.equal(g.run("AI_IDS.filter(id=>agent(id).buildings[0].type==='mine').length"),3);
+});
+test('diversification : priorité au secteur non représenté',()=>{
+ const g=game();
+ assert.notEqual(g.run("chooseExpansionType(agent('atlas'))"),'farm');
+});
+test('rachat de bâtiment IA : propriété et argent transférés',()=>{
+ const g=game();
+ g.run("agent('mercure').buildings.push({id:'mercure-extra',type:'lumber',pos:60,wage:20});agent('atlas').cash=500");
+ const before=g.run("agent('mercure').cash");
+ assert.equal(g.run("aiAcquireBuilding('atlas')"),true);
+ assert.equal(g.run("agent('atlas').buildings.some(b=>b.id==='mercure-extra')"),true);
+ assert.equal(g.run("agent('mercure').cash"),before+250);
+});
