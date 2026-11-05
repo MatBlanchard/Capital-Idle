@@ -82,7 +82,7 @@ function appointManager(workerId,role){
  w.managerFor='player';w.managerRole=role;a.managers[role].push(w.id);note(w.id+' devient '+(role==='hr'?'responsable RH':'gestionnaire de bourse'));save();render();
 }
 function aiRecruit(){
- for(const id of ['atlas','mercure','forge']){
+ for(const id of ['player','atlas','mercure','forge']){
  const a=agent(id);if(!canHire(a))continue;
  for(const b of a.buildings){if(b.type==='school')continue;let w=candidates().filter(w=>w.expectedWage<=b.wage).sort((x,y)=>(y.productivity-x.productivity)||dist(x.home,b.pos)-dist(y.home,b.pos))[0];
  if(w)hireWorker(id,w.id,b.id)}
