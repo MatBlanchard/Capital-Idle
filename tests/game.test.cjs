@@ -25,7 +25,7 @@ test('recrutement interdit sans responsable RH',()=>{
 });
 test('école, formation et recrutement après diplôme',()=>{
  const g=game();g.run("startGame('farm')");
- g.run("state.agents.player.stock.wood=20;state.agents.player.stock.ore=10;state.selected=0;build('school')");
+ g.run("state.agents.player.stock.wood=20;state.agents.player.stock.ore=10;state.selected=20;build('school')");
  assert.equal(g.run("state.agents.player.buildings.some(b=>b.type==='school')"),true);
  g.run("trainWorker(candidates()[0].id,'hr');trainingCycle();trainingCycle()");
  assert.equal(g.run("state.workers.some(w=>w.qualification==='hr')"),true);
