@@ -6,8 +6,8 @@ android {
         applicationId 'com.capitalidle.game'
         minSdk 24
         targetSdk 35
-        versionCode Integer.parseInt(System.getenv('CAPITAL_IDLE_BUILD_NUMBER') ?: '1')
-        versionName '0.5.' + (System.getenv('CAPITAL_IDLE_BUILD_NUMBER') ?: '1')
+        versionCode = Integer.parseInt(System.getenv('CAPITAL_IDLE_BUILD_NUMBER') ?: '1')
+        versionName = "0.5.${System.getenv('CAPITAL_IDLE_BUILD_NUMBER') ?: '1'}"
     }
     signingConfigs {
         permanent {
