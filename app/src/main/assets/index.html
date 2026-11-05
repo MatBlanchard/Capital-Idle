@@ -4,6 +4,8 @@
 'use strict';
 const VERSION=6,KEY='capital-idle-mobile-v6',LEGACY='capital-idle-mobile-v2',DAY_MS=3600000,STEP_MS=1000;
 const TYPES={school:{name:'École',emoji:'🏫',out:null,rate:0,cost:{wood:10,ore:6},jobs:0},farm:{name:'Ferme',emoji:'🌾',out:'food',rate:18,cost:{wood:12,ore:5},jobs:3},lumber:{name:'Scierie',emoji:'🪵',out:'wood',rate:12,cost:{wood:8,ore:8},jobs:2},mine:{name:'Mine',emoji:'⛏️',out:'ore',rate:9,cost:{wood:14,ore:4},jobs:2}};
+const AI_SPECS=[['atlas','Atlas','farm',21],['mercure','Mercure','lumber',42],['forge','Forge','mine',45],['nova','Nova','farm',3],['orion','Orion','lumber',11],['helios','Hélios','mine',19],['delta','Delta','farm',27],['zenith','Zénith','lumber',35],['titan','Titan','mine',43]];
+const AI_IDS=AI_SPECS.map(x=>x[0]);
 const ITEMS={food:'🥖 Nourriture',wood:'🪵 Bois',ore:'🪨 Minerai'},POS=[18,21,42,45],HOMES=[0,1,2,4,5,6,7,8,9,10,12,13,14,15,16,17,22,23,24,25,26,28,29,30,31,32,33,34,36,37,38,39,40,41,46,47,48,49,50,52,53,54,55,56,57,58,60,61,62,63];
 const $=id=>document.getElementById(id),rnd=n=>Math.round(n*100)/100,fmt=n=>(Number(n)||0).toFixed(2),dist=(a,b)=>Math.abs(a%8-b%8)+Math.abs(Math.floor(a/8)-Math.floor(b/8));
 let state,current='world',toastTimer;
@@ -17,7 +19,7 @@ function employedCount(b){return state.workers.filter(w=>w.alive&&w.job===b.id).
 function availableSchoolSeats(){return allBuildings().filter(b=>b.type==='school').length*2-state.workers.filter(w=>w.training).length}
 
 function owner(id,name,kind,pos,type){return initAgent({id,name,kind,cash:100,stock:{food:0,wood:0,ore:0},buildings:[{id:id+'-1',type,pos,wage:20}],alive:true})}
-function fresh(){let agents={player:owner('player','Vous','human',POS[0],null),atlas:owner('atlas','Atlas','ai',POS[1],'farm'),mercure:owner('mercure','Mercure','ai',POS[2],'lumber'),forge:owner('forge','Forge','ai',POS[3],'mine')};agents.player.buildings=[];let workers=HOMES.slice(0,24).map((home,i)=>initWorker({id:'w'+i,home,cash:100,food:0,health:3,job:null,alive:true,bornDay:-10,lastBirth:-10,adult:true},i));return {version:VERSION,started:false,gameMs:0,lastReal:Date.now(),selected:POS[0],agents,workers,orders:[],trades:[],nextOrder:1,nextBuilding:2,log:['Choisissez votre bâtiment de départ.'],lastAiCycle:-1,nextWorker:24,births:0,houses:[],nextHouse:1}}
+function fresh(){let agents={player:owner('player','Vous','human',POS[0],null)};for(const [id,name,type,pos] of AI_SPECS)agents[id]=owner(id,name,'ai',pos,type);agents.player.buildings=[];let workers=HOMES.slice(0,24).map((home,i)=>initWorker({id:'w'+i,home,cash:100,food:0,health:3,job:null,alive:true,bornDay:-10,lastBirth:-10,adult:true},i));return {version:VERSION,started:false,gameMs:0,lastReal:Date.now(),selected:POS[0],agents,workers,orders:[],trades:[],nextOrder:1,nextBuilding:2,log:['Choisissez votre bâtiment de départ.'],lastAiCycle:-1,nextWorker:24,births:0,houses:[],nextHouse:1}}
 function valid(s){return s&&[3,4,5,6].includes(s.version)&&s.agents?.player&&Array.isArray(s.orders)&&Array.isArray(s.workers)&&Number.isFinite(s.gameMs)}
 function migrate(s){if(s.version===3){s.version=4;s.nextWorker=s.workers.length;s.births=0;for(let w of s.workers){w.bornDay=-10;w.lastBirth=-10;w.adult=true}noteMigration(s)}if([4,5,6].includes(s.version)){s.version=6;s.houses ||= [];s.nextHouse ||= 1;for(let i=0;i<s.workers.length;i++){let w=initWorker(s.workers[i],i);w.rentHome ??= null}for(const a of Object.values(s.agents))initAgent(a)}return s}
 function noteMigration(s){s.log.unshift('Sauvegarde v0.3 migrée vers v0.4 : économie conservée.')}
@@ -29,7 +31,7 @@ function toast(msg){$('toast').textContent=msg;$('toast').style.display='block';
 function startGame(type){if(state.started||!TYPES[type])return;state.agents.player.buildings=[{id:'player-1',type,pos:POS[0],wage:20}];state.started=true;state.lastReal=Date.now();$('start').classList.add('hidden');note('Vous avez choisi : '+TYPES[type].name);aiSeed();seedManagers();aiCycle();state.lastAiCycle=Math.floor(state.gameMs/150000);save();render()}
 function seedManagers(){
  // Les entreprises IA démarrent avec leurs propres cadres diplômés et peuvent recruter.
- for(const id of ['atlas','mercure','forge']){
+ for(const id of AI_IDS){
   const a=agent(id);
   if(a.managers.hr.length||a.managers.trader.length)continue;
   for(const role of ['hr','trader']){
@@ -40,7 +42,7 @@ function seedManagers(){
  aiRecruit();
 }
 function aiSeed(){// Capitalistes IA disposent chacun d'un bâtiment et produisent manuellement au démarrage.
- for(let id of ['atlas','mercure','forge']){let a=state.agents[id],b=a.buildings[0];a.stock[TYPES[b.type].out]+=12;placeOrder(id,'sell',TYPES[b.type].out,8,12,false)}
+ for(let id of AI_IDS){let a=state.agents[id],b=a.buildings[0];a.stock[TYPES[b.type].out]+=12;placeOrder(id,'sell',TYPES[b.type].out,8,12,false)}
 }
 function agent(id){return state.agents[id]}
 function inventory(id){if(id.startsWith('w')){let w=state.workers.find(w=>w.id===id);if(!w)return null;return {get cash(){return w.cash},set cash(v){w.cash=v},stock:{get food(){return w.food},set food(v){w.food=v},wood:0,ore:0}}}return agent(id)||null}
@@ -82,7 +84,7 @@ function appointManager(workerId,role){
  w.managerFor='player';w.managerRole=role;a.managers[role].push(w.id);note(w.id+' devient '+(role==='hr'?'responsable RH':'gestionnaire de bourse'));save();render();
 }
 function aiRecruit(){
- for(const id of ['player','atlas','mercure','forge']){
+ for(const id of ['player',...AI_IDS]){
  const a=agent(id);if(!canHire(a))continue;
  for(const b of a.buildings){if(b.type==='school')continue;let w=candidates().filter(w=>w.expectedWage<=b.wage).sort((x,y)=>(y.productivity-x.productivity)||dist(x.home,b.pos)-dist(y.home,b.pos))[0];
  if(w)hireWorker(id,w.id,b.id)}
@@ -128,11 +130,12 @@ function playerTradingCycle(){
   if(best)placeOrder('player','sell',item,Math.min(5,Math.floor(a.stock[item])),best.price,false);
  }
 }
+function chooseExpansionType(a){return ['farm','lumber','mine'].slice().sort((x,y)=>a.buildings.filter(b=>b.type===x).length-a.buildings.filter(b=>b.type===y).length)[0]}
 function aiCycle(){
  playerTradingCycle();
  // Décisions autonomes : ajuster les salaires, négocier, acheter les intrants, construire.
  let day=Math.floor(state.gameMs/DAY_MS);
- for(let id of ['atlas','mercure','forge']){
+ for(let id of AI_IDS){
   let a=agent(id);if(!a.alive)continue;
   let bs=a.buildings,workers=state.workers.filter(w=>w.alive&&w.job&&bs.some(b=>b.id===w.job));
   for(let b of bs){let employed=workers.filter(w=>w.job===b.id).length;
@@ -150,7 +153,7 @@ function aiCycle(){
    }
   }
   // Approvisionnement pour agrandir l'entreprise ; trésorerie conservée pour payer les salaires.
-  let desired=bs.length<4?TYPES[['farm','lumber','mine'][((day+['atlas','mercure','forge'].indexOf(id))%3)]].cost:null;
+  let desiredType=chooseExpansionType(a);let desired=bs.length<5?TYPES[desiredType].cost:null;
   if(canTrade(a))for(let item of ['food','wood','ore']){
    let target=desired?(desired[item]||0)+2:(item==='food'?3:0);
    if(item==='food'&&!outputs.includes('food'))target=Math.max(target,3);
@@ -160,9 +163,9 @@ function aiCycle(){
    let qty=Math.min(target-a.stock[item],Math.floor(Math.max(0,a.cash-30)/price),6);
    if(qty>=1)placeOrder(id,'buy',item,qty,price,false);
   }
-  if(bs.length<4&&a.cash>=140){let options=Object.entries(TYPES).filter(([k])=>k!=='school').filter(([k,t])=>Object.entries(t.cost).every(([r,n])=>a.stock[r]>=n));
-   let free=HOMES.filter(h=>!state.workers.some(w=>w.alive&&w.home===h)&&!allBuildings().some(b=>b.pos===h)&&!houseAt(h));
-   if(options.length&&free.length){let [type,t]=options.sort((x,y)=>bs.filter(b=>b.type===x[0]).length-bs.filter(b=>b.type===y[0]).length)[0];
+  if(bs.length<5&&a.cash>=140){let options=Object.entries(TYPES).filter(([k])=>k!=='school').filter(([k,t])=>Object.entries(t.cost).every(([r,n])=>a.stock[r]>=n));
+   let free=Array.from({length:64},(_,i)=>i).filter(h=>h%8!==3&&!state.workers.some(w=>w.alive&&w.home===h)&&!allBuildings().some(b=>b.pos===h)&&!houseAt(h));
+   if(options.length&&free.length){let [type,t]=options.sort((x,y)=>bs.filter(b=>b.type===x[0]).length-bs.filter(b=>b.type===y[0]).length||(['farm','lumber','mine'].indexOf(x[0])-['farm','lumber','mine'].indexOf(y[0])))[0];
     for(let [r,n]of Object.entries(t.cost))a.stock[r]=rnd(a.stock[r]-n);
     bs.push({id:id+'-'+state.nextBuilding++,type,pos:free[0],wage:20});note(a.name+' investit dans '+t.name.toLowerCase());
    }
@@ -189,7 +192,7 @@ function render(){if(!state.started){$('start').classList.remove('hidden');retur
  }
  if(current==='housing'){let a=agent('player');$('housingStats').innerHTML='<p>Maisons : '+state.houses.length+' · Louées : '+state.houses.filter(h=>h.tenant).length+' · Recettes locatives : '+fmt(state.houses.filter(h=>h.owner==='player'&&h.tenant).reduce((n,h)=>n+h.rent,0))+' €/jour</p>';$('housingControls').innerHTML='<p>Terrain sélectionné : '+(state.selected+1)+'</p><button onclick="buildHouse()">Construire une maison (8 bois, 3 minerai)</button>';$('housingList').innerHTML=state.houses.map(h=>'<div class="item"><b>🏠 Parcelle '+(h.pos+1)+'</b> · '+(h.owner==='player'?'Votre maison':agent(h.owner).name)+'<p>Loyer : '+fmt(h.rent)+' €/jour · '+(h.tenant?'Occupée':'Libre')+'</p>'+(h.owner==='player'?`<button onclick="setRent('${h.id}',-1)">−1 €</button> <button onclick="setRent('${h.id}',1)">+1 €</button>`:'')+'</div>').join('')||'<p class="muted">Aucune maison construite.</p>'}
  if(current==='market'){let e=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));$('books').innerHTML=Object.keys(ITEMS).map(k=>{let orders=state.orders.filter(o=>o.item===k),buys=orders.filter(o=>o.side==='buy').sort((a,b)=>b.price-a.price||a.id-b.id).slice(0,6),sells=orders.filter(o=>o.side==='sell').sort((a,b)=>a.price-b.price||a.id-b.id).slice(0,6),tr=state.trades.find(t=>t.item===k);return `<div class="item"><b>${ITEMS[k]}</b><p class="muted">Dernier échange : ${tr?fmt(tr.price)+' €':'aucun'}</p><table><tr><th>Achats (prix max)</th><th>Ventes (prix min)</th></tr>${Array.from({length:Math.max(buys.length,sells.length,1)},(_,i)=>`<tr><td>${buys[i]?fmt(buys[i].qty)+' × '+fmt(buys[i].price)+' €':'—'}</td><td>${sells[i]?fmt(sells[i].qty)+' × '+fmt(sells[i].price)+' €':'—'}</td></tr>`).join('')}</table></div>`}).join('');$('myOrders').innerHTML=state.orders.filter(o=>o.owner==='player').map(o=>`<div class="item row"><span>${o.side==='buy'?'ACHAT':'VENTE'} ${ITEMS[o.item]} · ${fmt(o.qty)} × ${fmt(o.price)} €</span><button class="danger" onclick="cancelOrder(${o.id})">Annuler</button></div>`).join('')||'<p class="muted">Aucun ordre ouvert.</p>'}
- if(current==='economy'){let alive=state.workers.filter(w=>w.alive);$('workers').innerHTML=`<p>Population vivante : <b>${alive.length}</b> · Naissances : ${state.births||0} · Adultes : ${alive.filter(w=>w.adult).length} · Employés : ${alive.filter(w=>w.job).length} · Sans emploi : ${alive.filter(w=>w.adult&&!w.job).length}</p><p class="muted">Chaque travailleur reçoit 100 € par jour, achète sa nourriture via des ordres en bourse et consomme 1 unité par jour. Après 3 jours sans nourriture, il meurt. Deux adultes ayant chacun au moins 350 € et 2 nourritures peuvent avoir un enfant s'il reste un logement libre. Coût : 100 € et 1 nourriture par parent. L'enfant grandit pendant 2 jours et consomme dès sa naissance.</p>`;$('rivals').innerHTML=['atlas','mercure','forge'].map(id=>{let a=agent(id);return `<div class="item"><b>${a.name}</b> · ${a.buildings.length} bâtiment(s)<p class="muted">💰 ${fmt(a.cash)} € · 🥖 ${fmt(a.stock.food)} · 🪵 ${fmt(a.stock.wood)} · 🪨 ${fmt(a.stock.ore)}</p></div>`}).join('');$('log').innerHTML=state.log.map(x=>`<p>${x.replaceAll('&','&amp;').replaceAll('<','&lt;')}</p>`).join('')}
+ if(current==='economy'){let alive=state.workers.filter(w=>w.alive);$('workers').innerHTML=`<p>Population vivante : <b>${alive.length}</b> · Naissances : ${state.births||0} · Adultes : ${alive.filter(w=>w.adult).length} · Employés : ${alive.filter(w=>w.job).length} · Sans emploi : ${alive.filter(w=>w.adult&&!w.job).length}</p><p class="muted">Chaque travailleur reçoit 100 € par jour, achète sa nourriture via des ordres en bourse et consomme 1 unité par jour. Après 3 jours sans nourriture, il meurt. Deux adultes ayant chacun au moins 350 € et 2 nourritures peuvent avoir un enfant s'il reste un logement libre. Coût : 100 € et 1 nourriture par parent. L'enfant grandit pendant 2 jours et consomme dès sa naissance.</p>`;$('rivals').innerHTML=AI_IDS.filter(id=>agent(id)).map(id=>{let a=agent(id);return `<div class="item"><b>${a.name}</b> · ${a.buildings.length} bâtiment(s)<p class="muted">💰 ${fmt(a.cash)} € · 🥖 ${fmt(a.stock.food)} · 🪵 ${fmt(a.stock.wood)} · 🪨 ${fmt(a.stock.ore)}</p></div>`}).join('');$('log').innerHTML=state.log.map(x=>`<p>${x.replaceAll('&','&amp;').replaceAll('<','&lt;')}</p>`).join('')}
  if(current==='save')$('saveInfo').textContent='Version de sauvegarde : '+state.version+' · Jour '+day+' · Dernière sauvegarde locale automatique.'
 }
 function exportSave(){save();if(window.AndroidSave&&window.AndroidSave.exportJson){window.AndroidSave.exportJson(JSON.stringify({format:'capital-idle-save',schema:VERSION,data:state},null,2));return;}let blob=new Blob([JSON.stringify({format:'capital-idle-save',schema:VERSION,data:state},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='capital-idle-sauvegarde-jour-'+(Math.floor(state.gameMs/DAY_MS)+1)+'.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000)}
@@ -197,5 +200,5 @@ async function importSave(ev){let file=ev.target.files?.[0];if(!file)return;try{
 function resetGame(){if(!confirm('Effacer la partie actuelle ? Exportez votre sauvegarde avant.'))return;state=fresh();save();tab('world')}
 // Les sauvegardes v0.3 sont migrées sans perdre la partie ; v0.2 reste intacte.
 if(!localStorage.getItem(KEY)&&!localStorage.getItem('capital-idle-mobile-v5')&&!localStorage.getItem('capital-idle-mobile-v4')&&!localStorage.getItem('capital-idle-mobile-v3')&&localStorage.getItem(LEGACY))state.log.unshift('Une ancienne partie v0.2 a été détectée : elle reste conservée séparément.');
-window.hirePlayer=hirePlayer;window.trainWorker=trainWorker;window.appointManager=appointManager;window.startGame=startGame;window.tab=tab;window.buildHouse=buildHouse;window.setRent=setRent;render();if(state.started){if(['atlas','mercure','forge'].some(id=>!agent(id).managers.hr.length))seedManagers();let elapsed=Date.now()-state.lastReal;if(elapsed>0){simulate(elapsed);state.lastReal=Date.now();aiCycle();state.lastAiCycle=Math.floor(state.gameMs/150000);save();render()}}setInterval(advance,STEP_MS);document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else advance()});
+window.hirePlayer=hirePlayer;window.trainWorker=trainWorker;window.appointManager=appointManager;window.startGame=startGame;window.tab=tab;window.buildHouse=buildHouse;window.setRent=setRent;render();if(state.started){if(AI_IDS.some(id=>agent(id)&&!agent(id).managers.hr.length))seedManagers();let elapsed=Date.now()-state.lastReal;if(elapsed>0){simulate(elapsed);state.lastReal=Date.now();aiCycle();state.lastAiCycle=Math.floor(state.gameMs/150000);save();render()}}setInterval(advance,STEP_MS);document.addEventListener('visibilitychange',()=>{if(document.hidden)save();else advance()});
 </script></body></html>
