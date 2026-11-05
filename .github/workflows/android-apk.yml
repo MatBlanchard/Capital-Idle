@@ -11,6 +11,11 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Tests automatiques du moteur économique
+        run: node --test tests/*.test.cjs
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
