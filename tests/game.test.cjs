@@ -75,7 +75,8 @@ test('rachat de bâtiment IA : propriété et argent transférés',()=>{
  const g=game();
  g.run("agent('mercure').buildings.push({id:'mercure-extra',type:chooseExpansionType(agent('atlas')),pos:60,wage:20});agent('atlas').cash=500");
  const before=g.run("agent('mercure').cash");
- assert.equal(g.run("aiAcquireBuilding('atlas')"),true);
+ const details=g.run("({cash:agent('atlas').cash,preferred:chooseExpansionType(agent('atlas')),buyerBuildings:agent('atlas').buildings.length,sellerBuildings:agent('mercure').buildings.map(b=>b.type),sellers:AI_IDS.filter(id=>id!=='atlas'&&agent(id)?.buildings.length>1)})");
+ assert.equal(g.run("aiAcquireBuilding('atlas')"),true,JSON.stringify(details));
  assert.equal(g.run("agent('atlas').buildings.some(b=>b.id==='mercure-extra')"),true);
  assert.equal(g.run("agent('mercure').cash"),before+250);
 });
