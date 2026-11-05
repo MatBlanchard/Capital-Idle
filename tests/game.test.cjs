@@ -19,9 +19,10 @@ test('sauvegarde initiale et migration v5',()=>{
  assert.equal(g.run('state.workers.length'),24);
  assert.equal(g.run('migrate({...fresh(),version:5}).version'),6);
 });
-test('recrutement interdit sans responsable RH',()=>{
+test('recrutement manuel autorisé sans responsable RH',()=>{
  const g=game();g.run("startGame('farm')");
- assert.equal(g.run("hireWorker('player',candidates()[0].id,'player-1')"),false);
+ g.run("state.agents.player.buildings[0].wage=60");
+ assert.equal(g.run("hireWorker('player',candidates()[0].id,'player-1')"),true);
 });
 test('école, formation et recrutement après diplôme',()=>{
  const g=game();g.run("startGame('farm')");
@@ -47,4 +48,14 @@ test('production dépend de la productivité',()=>{
  g.run("hireWorker('player','w99','player-1')");
  const before=g.run("agent('player').stock.food");g.run("simulate(150000)");
  assert.ok(g.run("agent('player').stock.food")>before);
+});
+
+test('RH automatise le recrutement sur les postes vacants',()=>{
+ const g=game();g.run("startGame('farm')");
+ g.run("state.agents.player.buildings[0].wage=60");
+ assert.equal(g.run("canHire(agent('player'))"),false);
+ assert.equal(g.run("state.workers.filter(w=>w.job==='player-1').length"),0);
+ g.run("agent('player').managers.hr.push('w999');state.workers.push(initWorker({id:'w999',home:0,cash:100,food:3,health:3,job:null,alive:true,adult:true,managerFor:'player',managerRole:'hr',qualification:'hr'}));");
+ g.run("aiRecruit()");
+ assert.equal(g.run("state.workers.filter(w=>w.job==='player-1').length"),0);
 });
