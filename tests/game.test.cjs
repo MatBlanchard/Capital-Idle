@@ -115,3 +115,17 @@ test('page Effectifs : bâtiments, salariés et postes vacants',()=>{
  assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,new RegExp(id));
  assert.match(g.ctx.document.getElementById('staffSchool').innerHTML,/Professeurs : 1/);
 });
+
+test('école : deux postes distincts, professeur et proviseur',()=>{
+ const g=game();g.run("startGame('farm');agent('player').stock.wood=20;agent('player').stock.ore=10;state.selected=60;build('school');tab('staff')");
+ assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,/2 \/ 2/);
+ assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,/Professeur/);
+ assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,/Proviseur/);
+ assert.equal(g.run("TYPES.school.jobs"),2);
+});
+test('marché du travail : candidats sans emploi et hors formation',()=>{
+ const g=game();g.run("startGame('farm');tab('labor')");
+ const available=g.run("candidates().length");
+ assert.match(g.ctx.document.getElementById('laborBoard').innerHTML,new RegExp(available+' candidats disponibles'));
+ assert.equal(g.run("candidates().every(w=>!w.job&&!w.managerFor&&!w.training&&!w.schoolRole)"),true);
+});
