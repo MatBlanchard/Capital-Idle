@@ -281,3 +281,24 @@ test('façonnage : blé et paiement du client, pain livré, revenu du boulanger'
  assert.equal(g.run("agent('player').stock.food>=2"),true);
  assert.equal(g.run("state.bakeryContracts[0].status"),'completed');
 });
+
+test('ferme améliorée : lin, houblon, malt et effectifs',()=>{
+ const g=game();g.run("startGame('farm');agent('player').stock.wood=200;agent('player').stock.ore=200");
+ assert.equal(g.run("buildingJobs(agent('player').buildings[0])"),3);
+ g.run("upgradeFarm('player-1');upgradeFarm('player-1');upgradeFarm('player-1')");
+ assert.equal(g.run("agent('player').buildings[0].level"),4);
+ assert.equal(g.run("buildingJobs(agent('player').buildings[0])"),9);
+ g.run("state.workers[5].qualification='farmer';state.workers[5].job='player-1';agent('player').cash=10000;simulate(DAY_MS/4)");
+ assert.equal(g.run("agent('player').stock.flax>0"),true);
+ assert.equal(g.run("agent('player').stock.hops>0"),true);
+ assert.equal(g.run("agent('player').stock.malt>0"),true);
+});
+test('textile et boissons : bonheur et productivité',()=>{
+ const g=game();g.run("startGame('farm')");
+ g.run("agent('player').stock.clothes=1;state.workers[5].job='player-1'");
+ const before=g.run("state.workers[5].happiness");
+ assert.equal(g.run("distributeWellbeing('player','clothes')"),true);
+ assert.equal(g.run("state.workers[5].happiness"),before+12);
+ assert.equal(g.run("agent('player').stock.clothes"),0);
+ assert.equal(g.run("TYPES.tailor.input==='flax'&&TYPES.brewery.input==='hops'&&TYPES.distillery.input==='malt'"),true);
+});
