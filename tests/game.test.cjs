@@ -46,8 +46,8 @@ test('production dépend de la productivité',()=>{
  const g=game();g.run("startGame('farm')");
  g.run("state.agents.player.buildings[0].wage=60;agent('player').managers.hr.push('w99');state.workers.push(initWorker({id:'w99',home:0,cash:100,food:3,health:3,job:null,alive:true,adult:true,expectedWage:10,productivity:1.3}));");
  g.run("hireWorker('player','w99','player-1')");
- const before=g.run("agent('player').stock.food");g.run("simulate(150000)");
- assert.ok(g.run("agent('player').stock.food")>before);
+ const before=g.run("agent('player').stock.wheat");g.run("simulate(150000)");
+ assert.ok(g.run("agent('player').stock.wheat")>before);
 });
 
 test('RH automatise le recrutement du joueur sur les postes vacants',()=>{
@@ -62,7 +62,7 @@ test('RH automatise le recrutement du joueur sur les postes vacants',()=>{
 
 test('neuf entreprises IA réparties sur trois secteurs',()=>{
  const g=game();
- assert.equal(g.run('AI_IDS.length'),9);
+ assert.equal(g.run('AI_IDS.length'),10);
  assert.equal(g.run("AI_IDS.filter(id=>agent(id).buildings[0].type==='farm').length"),3);
  assert.equal(g.run("AI_IDS.filter(id=>agent(id).buildings[0].type==='lumber').length"),3);
  assert.equal(g.run("AI_IDS.filter(id=>agent(id).buildings[0].type==='mine').length"),3);
@@ -195,4 +195,21 @@ test('banque centrale : conservation des données dans les sauvegardes',()=>{
  const g=game();g.run("startGame('farm');requestCredit('player',120,6)");
  assert.equal(g.run("migrate(JSON.parse(JSON.stringify(state))).bank.loans.length"),1);
  assert.equal(g.run("migrate({...fresh(),bank:undefined}).bank.loans.length"),0);
+});
+
+test('ferme produit du blé et boulangerie transforme deux blés en un pain',()=>{
+ const g=game();g.run("startGame('farm')");
+ assert.equal(g.run("TYPES.farm.out"),'wheat');
+ assert.equal(g.run("TYPES.bakery.out"),'food');
+ assert.equal(g.run("TYPES.bakery.input"),'wheat');
+ const before=g.run("agent('moulin').stock.food");
+ g.run("agent('moulin').stock.wheat=20;agent('moulin').cash=1000;state.workers.push(initWorker({id:'w-baker',home:0,cash:100,food:3,health:3,job:'moulin-1',alive:true,adult:true,productivity:1,expectedWage:10}));simulate(DAY_MS/2)");
+ assert.equal(g.run("agent('moulin').stock.food"),before+4);
+ assert.equal(g.run("agent('moulin').stock.wheat"),12);
+});
+test('le blé est négociable mais ne nourrit pas directement les habitants',()=>{
+ const g=game();g.run("startGame('farm')");
+ assert.equal(g.run("!!ITEMS.wheat"),true);
+ g.run("state.workers[0].food=0;agent('player').stock.wheat=10");
+ assert.equal(g.run("state.workers[0].food"),0);
 });
