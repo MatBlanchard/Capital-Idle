@@ -26,7 +26,7 @@ test('recrutement manuel autorisé sans responsable RH',()=>{
 });
 test('école, formation et recrutement après diplôme',()=>{
  const g=game();g.run("startGame('farm')");
- g.run("state.agents.player.stock.wood=100;state.agents.player.stock.ore=100;state.selected=60;build('school');simulate(4*DAY_MS)");
+ g.run("state.agents.player.stock.wood=100;state.agents.player.stock.ore=100;state.selected=60;build('school');state.gameMs+=4*DAY_MS;finishConstruction()");
  assert.equal(g.run("state.agents.player.buildings.some(b=>b.type==='school')"),true);
  g.run("trainWorker(candidates()[0].id,'hr');trainingCycle();trainingCycle()");
  assert.equal(g.run("state.workers.some(w=>w.qualification==='hr')"),true);
@@ -88,7 +88,7 @@ test('un professeur et un proviseur préexistent',()=>{
 });
 test('un professeur formé peut enseigner et augmenter les places',()=>{
  const g=game();g.run("startGame('farm')");
- g.run("agent('player').stock.wood=100;agent('player').stock.ore=100;state.selected=60;build('school');simulate(4*DAY_MS);agent('player').cash=500");
+ g.run("agent('player').stock.wood=100;agent('player').stock.ore=100;state.selected=60;build('school');state.gameMs+=4*DAY_MS;finishConstruction();agent('player').cash=500");
  const id=g.run("candidates().find(w=>w.qualification==='worker').id");
  g.run("trainWorker('"+id+"','teacher');trainingCycle();trainingCycle();appointSchoolStaff('"+id+"','teacher')");
  assert.equal(g.run("activeSchoolStaff('teacher').length"),2);
@@ -117,7 +117,7 @@ test('page Effectifs : bâtiments, salariés et postes vacants',()=>{
 });
 
 test('école : deux postes distincts, professeur et proviseur',()=>{
- const g=game();g.run("startGame('farm');agent('player').stock.wood=100;agent('player').stock.ore=100;state.selected=60;build('school');simulate(4*DAY_MS);tab('staff')");
+ const g=game();g.run("startGame('farm');agent('player').stock.wood=100;agent('player').stock.ore=100;state.selected=60;build('school');state.gameMs+=4*DAY_MS;finishConstruction();tab('staff')");
  assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,/2 \/ 2/);
  assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,/Professeur/);
  assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,/Proviseur/);
