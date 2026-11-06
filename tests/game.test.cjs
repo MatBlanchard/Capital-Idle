@@ -249,3 +249,22 @@ test('famille stable, enfant à charge et majorité à dix-huit ans',()=>{
  g.run("state.gameMs=ADULT_AGE_DAYS*DAY_MS;state.workers.at(-1).food=5;daily()");
  assert.equal(g.run("state.workers.find(w=>w.id==='"+id+"').adult"),true);
 });
+
+test('offre de rachat : acceptation et transfert de propriété',()=>{
+ const g=game();g.run("startGame('farm');agent('player').cash=2000");
+ const id=g.run("agent('atlas').buildings[0].id");
+ assert.equal(g.run("offerBuildingPurchase('"+id+"',1000)"),true);
+ assert.equal(g.run("agent('player').cash"),1000);
+ g.run("state.gameMs=DAY_MS;resolvePurchaseOffers()");
+ assert.equal(g.run("state.acquisitionOffers[0].status"),'accepted');
+ assert.equal(g.run("agent('player').buildings.some(b=>b.id==='"+id+"')"),true);
+ assert.equal(g.run("agent('atlas').buildings.some(b=>b.id==='"+id+"')"),false);
+});
+test('offre refusée : restitution des fonds',()=>{
+ const g=game();g.run("startGame('farm');agent('player').cash=2000");
+ const id=g.run("agent('atlas').buildings[0].id");
+ assert.equal(g.run("offerBuildingPurchase('"+id+"',1)"),true);
+ g.run("state.gameMs=DAY_MS;resolvePurchaseOffers()");
+ assert.equal(g.run("state.acquisitionOffers[0].status"),'rejected');
+ assert.equal(g.run("agent('player').cash"),2000);
+});
