@@ -302,3 +302,26 @@ test('textile et boissons : bonheur et productivité',()=>{
  assert.equal(g.run("agent('player').stock.clothes"),0);
  assert.equal(g.run("TYPES.tailor.input==='flax'&&TYPES.brewery.input==='hops'&&TYPES.distillery.input==='malt'"),true);
 });
+
+test('niveau 5 : tabac et bureau de tabac',()=>{
+ const g=game();g.run("startGame('farm');agent('player').stock.wood=300;agent('player').stock.ore=300");
+ g.run("upgradeFarm('player-1');upgradeFarm('player-1');upgradeFarm('player-1');upgradeFarm('player-1')");
+ assert.equal(g.run("agent('player').buildings[0].level"),5);
+ assert.equal(g.run("buildingJobs(agent('player').buildings[0])"),11);
+ g.run("state.workers[5].qualification='farmer';state.workers[5].job='player-1';agent('player').cash=10000;simulate(DAY_MS/4)");
+ assert.equal(g.run("agent('player').stock.tobacco>0"),true);
+ assert.equal(g.run("TYPES.tobacconist.input"),'tobacco');
+});
+test('mortalité : probabilité croissante avec âge et exposition',()=>{
+ const g=game();
+ assert.equal(g.run("annualMortality(90)>annualMortality(40)"),true);
+ assert.equal(g.run("mortalityProbability({...state.workers[5],alcoholExposure:5})>mortalityProbability({...state.workers[5],alcoholExposure:0})"),true);
+});
+test('boissons : achats individuels sans distribution par employeur',()=>{
+ const g=game();g.run("startGame('farm')");
+ assert.equal(g.run("distributeWellbeing('player','beer')"),false);
+ g.run("state.workers[5].cash=1000;agent('moulin').stock.beer=10;agent('moulin').buildings.push({id:'brew-test',type:'brewery',pos:'10,4',wage:20})");
+ g.run("Math.random=()=>0;workerPurchases(2)");
+ assert.equal(g.run("state.workers[5].alcoholExposure>0"),true);
+ assert.equal(g.run("state.workers[5].cash<1000"),true);
+});
