@@ -129,3 +129,21 @@ test('marché du travail : candidats sans emploi et hors formation',()=>{
  assert.match(g.ctx.document.getElementById('laborBoard').innerHTML,new RegExp(available+' candidats disponibles'));
  assert.equal(g.run("candidates().every(w=>!w.job&&!w.managerFor&&!w.training&&!w.schoolRole)"),true);
 });
+
+test('une journée dure dix minutes réelles',()=>{
+ const g=game();assert.equal(g.run("DAY_MS"),600000);
+});
+test('carte navigable vers des coordonnées négatives et positives',()=>{
+ const g=game();g.run("startGame('farm');moveMap(-1,-1);tab('world')");
+ assert.match(g.ctx.document.getElementById('mapCoords').textContent,/x -8 à -1/);
+ g.run("tileClick('-8,-8')");
+ assert.equal(g.run("state.selected"),'-8,-8');
+ g.run("moveMap(2,2)");
+ assert.match(g.ctx.document.getElementById('mapCoords').textContent,/x 8 à 15/);
+});
+test('consignes RH : filtrage par productivité et salaire',()=>{
+ const g=game();g.run("startGame('farm');agent('player').buildings[0].wage=100;setHrPolicy('minProductivity',1.3);setHrPolicy('maxWage',10);tab('hr')");
+ assert.match(g.ctx.document.getElementById('hrBoard').innerHTML,/Productivité minimale/);
+ assert.equal(g.run("hrPolicy(agent('player')).minProductivity"),1.3);
+ assert.equal(g.run("hrPolicy(agent('player')).maxWage"),10);
+});
