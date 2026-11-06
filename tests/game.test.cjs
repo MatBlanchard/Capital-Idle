@@ -325,3 +325,9 @@ test('boissons : achats individuels sans distribution par employeur',()=>{
  assert.equal(g.run("state.workers[5].alcoholExposure>0"),true);
  assert.equal(g.run("state.workers[5].cash<1000"),true);
 });
+
+test('chaque travailleur démarre avec 50 pains',()=>{
+ const g=game();
+ assert.equal(g.run('state.workers.length'),24);
+ assert.equal(g.run('state.workers.every(w=>w.food===50)'),true);
+});
