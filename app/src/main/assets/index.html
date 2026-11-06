@@ -337,9 +337,9 @@ function playerTradingCycle(){
   const reservedSell=open.filter(o=>o.side==='sell').reduce((n,o)=>n+o.qty,0);
   const reservedBuy=open.filter(o=>o.side==='buy').reduce((n,o)=>n+o.qty,0);
   // Les fonds et les marchandises immobilisés dans les ordres restent dans le calcul du stock cible.
-  const total=a.stock[item]+reservedSell+reservedBuy;
   const target=policy.quantity;
-  const required=policy.mode==='sell'?Math.max(0,total-target):Math.max(0,target-total);
+  // Les quantités réservées servent au calcul des ordres existants, pas à effacer la demande.
+  const required=policy.mode==='sell'?Math.max(0,a.stock[item]+reservedSell-target):Math.max(0,target-a.stock[item]);
   for(const o of [...open])if(o.side!==wantedSide||Math.abs(o.price-policy.price)>.001||Math.abs(o.qty-required)>.01)cancelAgentOrder(o);
   const existing=state.orders.filter(o=>o.owner==='player'&&o.item===item&&o.autoTrade&&o.side===wantedSide).reduce((n,o)=>n+o.qty,0);
   let qty=Math.max(0,required-existing);
