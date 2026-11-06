@@ -331,3 +331,18 @@ test('chaque travailleur démarre avec 50 pains',()=>{
  assert.equal(g.run('state.workers.length'),24);
  assert.equal(g.run('state.workers.every(w=>w.food===50)'),true);
 });
+
+test('commercial : vendre uniquement le surplus au-dessus du seuil',()=>{
+ const g=game();g.run("startGame('farm');agent('player').managers.trader=['w1'];agent('player').stock.wheat=30");
+ assert.equal(g.run("setTradePolicy('wheat','sell',20,8)"),true);
+ g.run("playerTradingCycle()");
+ assert.equal(g.run("state.orders.filter(o=>o.owner==='player'&&o.item==='wheat'&&o.autoTrade).reduce((n,o)=>n+o.qty,0)"),10);
+ assert.equal(g.run("agent('player').stock.wheat"),20);
+});
+test('commercial : acheter pour maintenir un stock cible sans doubler les ordres',()=>{
+ const g=game();g.run("startGame('farm');agent('player').managers.trader=['w1'];agent('player').cash=1000;agent('player').stock.wood=3");
+ assert.equal(g.run("setTradePolicy('wood','buy',15,10)"),true);
+ g.run("playerTradingCycle();playerTradingCycle()");
+ assert.equal(g.run("state.orders.filter(o=>o.owner==='player'&&o.item==='wood'&&o.autoTrade).reduce((n,o)=>n+o.qty,0)"),12);
+ assert.equal(g.run("agent('player').cash"),880);
+});
