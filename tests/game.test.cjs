@@ -268,3 +268,16 @@ test('offre refusée : restitution des fonds',()=>{
  assert.equal(g.run("state.acquisitionOffers[0].status"),'rejected');
  assert.equal(g.run("agent('player').cash"),2000);
 });
+
+test('façonnage : blé et paiement du client, pain livré, revenu du boulanger',()=>{
+ const g=game();g.run("startGame('farm')");
+ g.run("agent('player').stock.wheat=10;agent('player').cash=1000");
+ const bakery=g.run("allBuildings().find(b=>b.type==='bakery'&&b.owner!=='player').id");
+ g.run("state.workers[5].job='"+bakery+"';state.workers[5].qualification='baker'");
+ assert.equal(g.run("orderBakeryService('player','"+bakery+"',2)"),true);
+ assert.equal(g.run("agent('player').stock.wheat"),6);
+ assert.equal(g.run("agent('player').cash"),990);
+ g.run("simulate(DAY_MS)");
+ assert.equal(g.run("agent('player').stock.food>=2"),true);
+ assert.equal(g.run("state.bakeryContracts[0].status"),'completed');
+});
