@@ -10,7 +10,7 @@ const ITEMS={food:'🥖 Pain',wheat:'🌾 Blé',wood:'🪵 Bois',ore:'🪨 Miner
 const $=id=>document.getElementById(id),rnd=n=>Math.round(n*100)/100,fmt=n=>(Number(n)||0).toFixed(2),coords=p=>typeof p==='number'?{x:p%8,y:Math.floor(p/8)}:{x:Number(String(p).split(',')[0]),y:Number(String(p).split(',')[1])},dist=(a,b)=>Math.abs(coords(a).x-coords(b).x)+Math.abs(coords(a).y-coords(b).y),roadAt=p=>coords(p).x===3,worldPos=(x,y)=>x>=0&&x<8&&y>=0&&y<8?y*8+x:x+','+y;
 let state,current='world',toastTimer,mapX=0,mapY=0;
 const PRODUCTIVITY=[0.7,0.85,1,1.15,1.3];
-function initWorker(w,i=0){w.productivity ??= PRODUCTIVITY[i%5];w.expectedWage ??= 15+(i%7)*5;w.qualification ??= 'worker';w.training ??= null;w.schoolRole ??= null;w.primaryDiploma ??= (w.qualification!=='worker');return w}
+function initWorker(w,i=0){w.productivity ??= PRODUCTIVITY[i%5];w.expectedWage ??= 15+(i%7)*5;w.qualification ??= 'worker';w.training ??= null;w.schoolRole ??= null;w.primaryDiploma ??= (w.qualification!=='worker');w.parentIds ??= [];w.partnerId ??= null;w.children ??= [];return w}
 function initAgent(a){a.managers ??= {hr:[],trader:[]};return a}
 function canHire(a){return !!a.managers?.hr?.length}
 function canTrade(a){return !!a.managers?.trader?.length}
@@ -18,6 +18,7 @@ function candidates(){return state.workers.filter(w=>w.alive&&w.adult&&!w.job&&!
 function employedCount(b){return state.workers.filter(w=>w.alive&&w.job===b.id).length}
 function ready(b){return !b.readyAt||state.gameMs>=b.readyAt}
 function finishConstruction(){for(const a of Object.values(state.agents))for(const b of a.buildings)if(b.readyAt&&state.gameMs>=b.readyAt){delete b.readyAt;note(a.name+' : '+TYPES[b.type].name+' terminé(e)')}}
+const ADULT_AGE_DAYS=18*YEAR_DAYS,BIRTH_INTERVAL_DAYS=YEAR_DAYS;
 const PRIMARY_ROLES=['farmer','baker','miner','lumberjack','teacher'];
 const UNIVERSITY_ROLES=['principal','professor','hr','trader'];
 const ROLE_NAMES={farmer:'Fermier',baker:'Boulanger',miner:'Mineur',lumberjack:'Bûcheron',teacher:'Professeur du primaire',principal:'Proviseur',professor:'Professeur universitaire',hr:'Responsable RH',trader:'Commercial'};
@@ -134,30 +135,37 @@ function aiRecruit(){
 function houseAt(pos){return state.houses.find(h=>h.pos===pos)}
 function buildHouse(){let p=state.selected,a=agent('player');if(p%8===3||allBuildings().some(b=>b.pos===p)||houseAt(p)||state.workers.some(w=>w.alive&&w.home===p))return toast('Terrain indisponible');if(a.stock.wood<8||a.stock.ore<3)return toast('Il faut 8 bois et 3 minerai');a.stock.wood=rnd(a.stock.wood-8);a.stock.ore=rnd(a.stock.ore-3);state.houses.push({id:'h'+state.nextHouse++,pos:p,owner:'player',rent:8,tenant:null});note('Maison construite');save();render()}
 function setRent(id,delta){let h=state.houses.find(h=>h.id===id&&h.owner==='player');if(!h)return;h.rent=Math.max(0,rnd(h.rent+delta));save();render()}
-function housingCycle(){for(const h of state.houses)h.tenant=null;let available=state.houses.slice();for(const w of state.workers){if(!w.alive)continue;let options=available.filter(h=>w.cash>=h.rent+5).sort((a,b)=>(a.rent+dist(a.pos,(w.job?(allBuildings().find(x=>x.id===w.job)?.pos??w.home):w.home))*.4)-(b.rent+dist(b.pos,(w.job?(allBuildings().find(x=>x.id===w.job)?.pos??w.home):w.home))*.4));if(!options.length){w.rentHome=null;continue}let h=options[0];available=available.filter(x=>x!==h);h.tenant=w.id;w.rentHome=h.id;w.home=h.pos;w.cash=rnd(w.cash-h.rent);agent(h.owner).cash=rnd(agent(h.owner).cash+h.rent)}}
+function housingCycle(){for(const h of state.houses)h.tenant=null;let available=state.houses.slice();for(const w of state.workers){if(!w.alive)continue;if(!w.adult){const parent=w.parentIds.map(id=>state.workers.find(p=>p.id===id&&p.alive)).find(Boolean);if(parent){w.home=parent.home;w.rentHome=parent.rentHome}continue}let options=available.filter(h=>w.cash>=h.rent+5).sort((a,b)=>(a.rent+dist(a.pos,(w.job?(allBuildings().find(x=>x.id===w.job)?.pos??w.home):w.home))*.4)-(b.rent+dist(b.pos,(w.job?(allBuildings().find(x=>x.id===w.job)?.pos??w.home):w.home))*.4));if(!options.length){w.rentHome=null;continue}let h=options[0];available=available.filter(x=>x!==h);h.tenant=w.id;w.rentHome=h.id;w.home=h.pos;w.cash=rnd(w.cash-h.rent);agent(h.owner).cash=rnd(agent(h.owner).cash+h.rent)}}
 function daily(){
  let day=Math.floor(state.gameMs/DAY_MS);if(day%MONTH_DAYS===0){repayLoans();const bank=centralBank();bank.ubiIssued=rnd(bank.ubiIssued+100*(Object.values(state.agents).filter(a=>a.alive).length+state.workers.filter(w=>w.alive).length));for(const a of Object.values(state.agents))if(a.alive)a.cash=rnd(a.cash+100);for(const w of state.workers)if(w.alive)w.cash=rnd(w.cash+100);note('Mois '+(day/MONTH_DAYS+1)+' : revenu de base +100 € par agent vivant')}
- let dead=0;for(let w of state.workers){if(!w.alive)continue;if(!w.adult&&day-w.bornDay>=2)w.adult=true;
- if(w.food>=1){w.food=rnd(w.food-1);w.health=3}else{w.health--;if(w.health<=0){w.alive=false;w.job=null;dead++;cancelWorkerOrders(w.id)}}}
+ let dead=0;for(let w of state.workers){if(!w.alive)continue;if(!w.adult&&day-w.bornDay>=ADULT_AGE_DAYS){w.adult=true;note(w.id+' atteint 18 ans et peut travailler')};
+ if(!w.adult&&w.food<1){for(const id of w.parentIds){const parent=state.workers.find(p=>p.id===id&&p.alive&&p.food>=1);if(parent){parent.food=rnd(parent.food-1);w.food=rnd(w.food+1);break}}}if(w.food>=1){w.food=rnd(w.food-1);w.health=3}else{w.health--;if(w.health<=0){w.alive=false;w.job=null;dead++;cancelWorkerOrders(w.id)}}}
  if(dead)note(dead+' travailleur(s) mort(s) de faim');jobAssignment();trainingCycle();housingCycle();
  reproduce(day);jobAssignment();aiCycle();
 }
 function reproduce(day){
- // Une naissance requiert deux adultes prospères, une habitation libre et des réserves réelles.
- // Les nouveau-nés ne travaillent pas pendant deux jours et consomment dès la naissance.
- let candidates=state.workers.filter(w=>w.alive&&w.adult&&w.cash>=350&&w.food>=2&&day-w.lastBirth>=3).sort((a,b)=>a.home-b.home);
- let occupied=new Set(state.workers.filter(w=>w.alive).map(w=>w.home));
- let lots=HOMES.filter(h=>!occupied.has(h)&&!allBuildings().some(b=>b.pos===h)&&!houseAt(h));
- let births=0;
- while(candidates.length>=2&&lots.length&&births<3){
-  let a=candidates.shift(),index=candidates.findIndex(b=>dist(a.home,b.home)<=6);
-  if(index<0)continue;let b=candidates.splice(index,1)[0];
-  a.cash=rnd(a.cash-100);b.cash=rnd(b.cash-100);a.food=rnd(a.food-1);b.food=rnd(b.food-1);
+ // Couples stables, délai d'un an entre deux naissances et prise en charge familiale.
+ const adults=state.workers.filter(w=>w.alive&&w.adult&&w.cash>=350&&w.food>=2&&day-w.lastBirth>=BIRTH_INTERVAL_DAYS);
+ const byId=id=>state.workers.find(w=>w.id===id&&w.alive);
+ const eligible=new Set(adults.map(w=>w.id));
+ const used=new Set();let births=0;
+ for(const a of adults){
+  if(used.has(a.id)||births>=3)continue;
+  let b=a.partnerId?byId(a.partnerId):null;
+  if(b&&!eligible.has(b.id))continue;
+  if(!b){b=adults.find(w=>w.id!==a.id&&!used.has(w.id)&&!w.partnerId&&dist(a.home,w.home)<=6);if(!b)continue;a.partnerId=b.id;b.partnerId=a.id}
+  if(b.id===a.id||used.has(b.id)||!eligible.has(b.id)||dist(a.home,b.home)>6)continue;
+  // Un foyer accueille au maximum deux enfants mineurs.
+  const dependent=state.workers.filter(w=>w.alive&&!w.adult&&w.parentIds.includes(a.id)&&w.parentIds.includes(b.id));
+  if(dependent.length>=2)continue;
+  used.add(a.id);used.add(b.id);
+  a.cash=rnd(a.cash-100);b.cash=rnd(b.cash-100);
+  a.food=rnd(a.food-1);b.food=rnd(b.food-1);
   a.lastBirth=day;b.lastBirth=day;
-  let home=lots.shift(),child=initWorker({id:'w'+state.nextWorker++,home,cash:100,food:2,health:3,job:null,alive:true,bornDay:day,lastBirth:day,adult:false});
-  state.workers.push(child);births++;state.births++;
+  const child=initWorker({id:'w'+state.nextWorker++,home:a.home,cash:100,food:2,health:3,job:null,alive:true,bornDay:day,lastBirth:day,adult:false,parentIds:[a.id,b.id]});
+  a.children.push(child.id);b.children.push(child.id);state.workers.push(child);births++;state.births++;
  }
- if(births)note(births+' naissance(s) : nouveaux habitants (maturité dans 2 jours)');
+ if(births)note(births+' naissance(s) : enfants à charge jusqu’à 18 ans');
 }
 function cancelWorkerOrders(id){for(let o of state.orders.filter(o=>o.owner===id)){let a=inventory(id);if(o.side==='buy')a.cash=rnd(a.cash+o.qty*o.price);else a.stock[o.item]=rnd(a.stock[o.item]+o.qty);state.orders=state.orders.filter(x=>x!==o)}}
 function cancelAgentOrder(o){let a=inventory(o.owner);if(!a)return;if(o.side==='buy')a.cash=rnd(a.cash+o.qty*o.price);else a.stock[o.item]=rnd(a.stock[o.item]+o.qty);state.orders=state.orders.filter(x=>x!==o)}
