@@ -61,7 +61,7 @@ function cancelOrder(id){let o=state.orders.find(o=>o.id===id&&o.owner==='player
 function placePlayerOrder(){placeOrder('player',$('orderSide').value,$('orderItem').value,Number($('orderQty').value),Number($('orderPrice').value))}
 function moveMap(dx,dy){mapX+=dx*8;mapY+=dy*8;render()}
 function centerMap(){const p=coords(state.selected);mapX=Math.floor(p.x/8)*8;mapY=Math.floor(p.y/8)*8;render()}
-function tileClick(i){state.selected=i;let b=allBuildings().find(x=>x.pos===i);if(b&&b.owner==='player'&&TYPES[b.type].out){state.agents.player.stock[TYPES[b.type].out]=rnd(state.agents.player.stock[TYPES[b.type].out]+1);toast('+1 '+ITEMS[TYPES[b.type].out])}render();save()}
+function tileClick(i){if(typeof i==='string'&&!i.includes(','))i=Number(i);state.selected=i;let b=allBuildings().find(x=>x.pos===i);if(b&&b.owner==='player'&&TYPES[b.type].out){state.agents.player.stock[TYPES[b.type].out]=rnd(state.agents.player.stock[TYPES[b.type].out]+1);toast('+1 '+ITEMS[TYPES[b.type].out])}render();save()}
 function allBuildings(){return Object.values(state.agents).flatMap(a=>a.buildings.map(b=>({...b,owner:a.id})))}
 function build(type){let p=state.selected,t=TYPES[type],a=agent('player');if(!t||houseAt(p)||roadAt(p)||state.workers.some(w=>w.alive&&w.home===p)||allBuildings().some(b=>b.pos===p))return toast('Terrain indisponible');if(Object.entries(t.cost).some(([k,v])=>a.stock[k]<v))return toast('Matériaux insuffisants');for(let [k,v]of Object.entries(t.cost))a.stock[k]=rnd(a.stock[k]-v);a.buildings.push({id:'player-'+state.nextBuilding++,type,pos:p,wage:20});note('Construction : '+t.name);save();render()}
 function wage(id,delta){let b=agent('player').buildings.find(x=>x.id===id);if(!b)return;b.wage=Math.max(0,rnd(b.wage+delta));save();render()}
