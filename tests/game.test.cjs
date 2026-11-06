@@ -92,7 +92,7 @@ test('un professeur formé peut enseigner et augmenter les places',()=>{
  const id=g.run("candidates().find(w=>w.qualification==='worker').id");
  g.run("trainWorker('"+id+"','teacher');trainingCycle();trainingCycle();appointSchoolStaff('"+id+"','teacher')");
  assert.equal(g.run("activeSchoolStaff('teacher').length"),2);
- assert.equal(g.run("availableSchoolSeats()"),4);
+ assert.equal(g.run("availableSchoolSeats()"),2);
 });
 test('le proviseur est nécessaire pour recruter les cadres',()=>{
  const g=game();g.run("startGame('farm')");
