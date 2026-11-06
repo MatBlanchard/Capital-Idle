@@ -22,17 +22,17 @@ test('sauvegarde initiale et migration v5',()=>{
 test('recrutement manuel autorisé sans responsable RH',()=>{
  const g=game();g.run("startGame('farm')");
  g.run("state.agents.player.buildings[0].wage=60");
- assert.equal(g.run("hireWorker('player',candidates()[0].id,'player-1')"),true);
+ g.run("candidates()[0].qualification='farmer'");assert.equal(g.run("hireWorker('player',candidates()[0].id,'player-1')"),true);
 });
 test('école, formation et recrutement après diplôme',()=>{
  const g=game();g.run("startGame('farm')");
  g.run("state.agents.player.stock.wood=100;state.agents.player.stock.ore=100;state.selected=60;build('school');state.gameMs+=4*DAY_MS;finishConstruction()");
  assert.equal(g.run("state.agents.player.buildings.some(b=>b.type==='school')"),true);
- g.run("trainWorker(candidates()[0].id,'hr');trainingCycle();trainingCycle()");
+ g.run("trainWorker(candidates()[0].id,'farmer');trainingCycle();trainingCycle();trainWorker(candidates().find(w=>w.primaryDiploma).id,'hr');trainingCycle();trainingCycle()");
  assert.equal(g.run("state.workers.some(w=>w.qualification==='hr')"),true);
  g.run("appointManager(state.workers.find(w=>w.qualification==='hr'&&!w.managerFor).id,'hr')");
  assert.equal(g.run("canHire(agent('player'))"),true);
- g.run("state.agents.player.buildings[0].wage=60;state.workers.push(initWorker({id:'w-school-test',home:0,cash:100,food:3,health:3,job:null,alive:true,adult:true,expectedWage:10,productivity:1}))");
+ g.run("state.agents.player.buildings[0].wage=60;state.workers.push(initWorker({id:'w-school-test',qualification:'farmer',home:0,cash:100,food:3,health:3,job:null,alive:true,adult:true,expectedWage:10,productivity:1}))");
  assert.equal(g.run("hireWorker('player','w-school-test','player-1')"),true);
 });
 test('ordre boursier et matching compatibles',()=>{
@@ -44,7 +44,7 @@ test('ordre boursier et matching compatibles',()=>{
 });
 test('production dépend de la productivité',()=>{
  const g=game();g.run("startGame('farm')");
- g.run("state.agents.player.buildings[0].wage=60;agent('player').managers.hr.push('w99');state.workers.push(initWorker({id:'w99',home:0,cash:100,food:3,health:3,job:null,alive:true,adult:true,expectedWage:10,productivity:1.3}));");
+ g.run("state.agents.player.buildings[0].wage=60;agent('player').managers.hr.push('w99');state.workers.push(initWorker({id:'w99',home:0,cash:100,food:3,health:3,job:null,alive:true,adult:true,expectedWage:10,productivity:1.3,qualification:'farmer'}));");
  g.run("hireWorker('player','w99','player-1')");
  const before=g.run("agent('player').stock.wheat");g.run("simulate(150000)");
  assert.ok(g.run("agent('player').stock.wheat")>before);
@@ -56,7 +56,7 @@ test('RH automatise le recrutement du joueur sur les postes vacants',()=>{
  assert.equal(g.run("canHire(agent('player'))"),false);
  assert.equal(g.run("state.workers.filter(w=>w.job==='player-1').length"),0);
  g.run("agent('player').managers.hr.push('w999');state.workers.push(initWorker({id:'w999',home:0,cash:100,food:3,health:3,job:null,alive:true,adult:true,managerFor:'player',managerRole:'hr',qualification:'hr'}));");
- g.run("aiRecruit()");
+ g.run("candidates().forEach(w=>w.qualification='farmer');aiRecruit()");
  assert.ok(g.run("state.workers.filter(w=>w.job==='player-1').length")>0);
 });
 
@@ -92,7 +92,7 @@ test('un professeur formé peut enseigner et augmenter les places',()=>{
  const id=g.run("candidates().find(w=>w.qualification==='worker').id");
  g.run("trainWorker('"+id+"','teacher');trainingCycle();trainingCycle();appointSchoolStaff('"+id+"','teacher')");
  assert.equal(g.run("activeSchoolStaff('teacher').length"),2);
- assert.equal(g.run("availableSchoolSeats()"),2);
+ assert.equal(g.run("availableSchoolSeats()"),4);
 });
 test('le proviseur est nécessaire pour recruter les cadres',()=>{
  const g=game();g.run("startGame('farm')");
@@ -110,7 +110,7 @@ test('page Effectifs : bâtiments, salariés et postes vacants',()=>{
  assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,/Ferme/);
  g.run("agent('player').buildings[0].wage=60");
  const id=g.run("candidates().find(w=>w.qualification==='worker').id");
- g.run("hireWorker('player','"+id+"','player-1');tab('staff')");
+ g.run("state.workers.find(w=>w.id==='"+id+"').qualification='farmer';hireWorker('player','"+id+"','player-1');tab('staff')");
  assert.match(g.ctx.document.getElementById('staffSummary').innerHTML,/1 \/ 3/);
  assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,new RegExp(id));
  assert.match(g.ctx.document.getElementById('staffSchool').innerHTML,/Professeurs : 1/);
@@ -118,9 +118,9 @@ test('page Effectifs : bâtiments, salariés et postes vacants',()=>{
 
 test('école : deux postes distincts, professeur et proviseur',()=>{
  const g=game();g.run("startGame('farm');agent('player').stock.wood=100;agent('player').stock.ore=100;state.selected=60;build('school');state.gameMs+=4*DAY_MS;finishConstruction();tab('staff')");
- assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,/2 \/ 2/);
- assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,/Professeur/);
- assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,/Proviseur/);
+ assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,/0 \/ 2/);
+ assert.match(g.ctx.document.getElementById('staffSchool').innerHTML,/Professeur/);
+ assert.match(g.ctx.document.getElementById('staffSchool').innerHTML,/Proviseur/);
  assert.equal(g.run("TYPES.school.jobs"),2);
 });
 test('marché du travail : candidats sans emploi et hors formation',()=>{
@@ -212,4 +212,16 @@ test('le blé est négociable mais ne nourrit pas directement les habitants',()=
  assert.equal(g.run("!!ITEMS.wheat"),true);
  g.run("state.workers[0].food=0;agent('player').stock.wheat=10");
  assert.equal(g.run("state.workers[0].food"),0);
+});
+
+test('primaire requis pour une formation universitaire',()=>{
+ const g=game();g.run("startGame('farm');agent('player').cash=500");
+ assert.equal(g.run("activeSchoolStaff('professor').length"),1);
+ assert.equal(g.run("availableUniversitySeats()"),2);
+ const id=g.run("candidates().find(w=>!w.primaryDiploma).id");
+ assert.notEqual(g.run("trainWorker('"+id+"','hr')"),true);
+ assert.equal(g.run("trainWorker('"+id+"','farmer')"),true);
+ g.run("trainingCycle();trainingCycle()");
+ assert.equal(g.run("state.workers.find(w=>w.id==='"+id+"').primaryDiploma"),true);
+ assert.equal(g.run("trainWorker('"+id+"','hr')"),true);
 });
