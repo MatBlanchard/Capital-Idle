@@ -72,7 +72,7 @@ function aiSeed(){// Capitalistes IA disposent chacun d'un bâtiment et produise
 }
 function agent(id){return state.agents[id]}
 function inventory(id){if(id.startsWith('w')){let w=state.workers.find(w=>w.id===id);if(!w)return null;return {get cash(){return w.cash},set cash(v){w.cash=v},stock:{get food(){return w.food},set food(v){w.food=v},wood:0,ore:0}}}return agent(id)||null}
-function placeOrder(id,side,item,qty,price,show=true){qty=rnd(qty);price=rnd(price);if(!ITEMS[item]||!['buy','sell'].includes(side)||!(qty>0&&price>0)||qty>1000000||price>1000000)return show&&toast('Ordre invalide');let a=inventory(id);if(!a)return false;let cost=rnd(qty*price);if(side==='buy'){if(a.cash+1e-7<cost)return show&&toast('Argent insuffisant');a.cash=rnd(a.cash-cost)}else{if(a.stock[item]+1e-7<qty)return show&&toast('Stock insuffisant');a.stock[item]=rnd(a.stock[item]-qty)}let o={id:state.nextOrder++,owner:id,side,item,qty,price,created:state.gameMs};state.orders.push(o);match(item);if(show){save();render();toast('Ordre enregistré')}return true}
+function placeOrder(id,side,item,qty,price,show=true,autoTrade=false){qty=rnd(qty);price=rnd(price);if(!ITEMS[item]||!['buy','sell'].includes(side)||!(qty>0&&price>0)||qty>1000000||price>1000000)return show&&toast('Ordre invalide');let a=inventory(id);if(!a)return false;let cost=rnd(qty*price);if(side==='buy'){if(a.cash+1e-7<cost)return show&&toast('Argent insuffisant');a.cash=rnd(a.cash-cost)}else{if(a.stock[item]+1e-7<qty)return show&&toast('Stock insuffisant');a.stock[item]=rnd(a.stock[item]-qty)}let o={id:state.nextOrder++,owner:id,side,item,qty,price,created:state.gameMs,autoTrade};state.orders.push(o);match(item);if(show){save();render();toast('Ordre enregistré')}return true}
 function match(item){let rounds=0;while(rounds++<1000){let buys=state.orders.filter(o=>o.item===item&&o.side==='buy'&&o.qty>.0001).sort((a,b)=>b.price-a.price||a.id-b.id),sells=state.orders.filter(o=>o.item===item&&o.side==='sell'&&o.qty>.0001).sort((a,b)=>a.price-b.price||a.id-b.id);let buy=null,sell=null;for(const b of buys){let candidate=sells.find(a=>a.owner!==b.owner&&a.price<=b.price+1e-7);if(candidate){buy=b;sell=candidate;break}}if(!buy||!sell)break;let q=rnd(Math.min(buy.qty,sell.qty));if(q<=0)break;let price=buy.id<sell.id?buy.price:sell.price;let buyer=inventory(buy.owner),seller=inventory(sell.owner);if(!buyer||!seller)break;buyer.stock[item]=rnd(buyer.stock[item]+q);seller.cash=rnd(seller.cash+q*price);buyer.cash=rnd(buyer.cash+q*(buy.price-price));buy.qty=rnd(buy.qty-q);sell.qty=rnd(sell.qty-q);state.trades.unshift({item,qty:q,price,day:Math.floor(state.gameMs/DAY_MS)+1});state.trades=state.trades.slice(0,30);if(buy.qty<.001)state.orders=state.orders.filter(o=>o!==buy);if(sell.qty<.001)state.orders=state.orders.filter(o=>o!==sell);if(buy.owner==='player'||sell.owner==='player')note('Transaction : '+fmt(q)+' '+item+' à '+fmt(price)+' €')}
 }
 function cancelOrder(id){let o=state.orders.find(o=>o.id===id&&o.owner==='player');if(!o)return;let a=inventory(o.owner);if(o.side==='buy')a.cash=rnd(a.cash+o.qty*o.price);else a.stock[o.item]=rnd(a.stock[o.item]+o.qty);state.orders=state.orders.filter(x=>x!==o);save();render()}
@@ -325,10 +325,7 @@ function playerTradingCycle(){
   if(wantedSide==='sell')qty=Math.min(qty,a.stock[item]);
   else qty=Math.min(qty,Math.floor(a.cash/policy.price*100)/100);
   qty=rnd(qty);
-  if(qty>.001&&placeOrder('player',wantedSide,item,qty,policy.price,false)){
-   const o=state.orders.findLast(o=>o.owner==='player'&&o.item===item&&o.side===wantedSide&&!o.autoTrade);
-   if(o)o.autoTrade=true;
-  }
+  if(qty>.001)placeOrder('player',wantedSide,item,qty,policy.price,false,true);
  }
 }
 function offerBuildingPurchase(buildingId,amount){
