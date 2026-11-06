@@ -11,7 +11,7 @@ const $=id=>document.getElementById(id),rnd=n=>Math.round(n*100)/100,fmt=n=>(Num
 let state,current='world',toastTimer,mapX=0,mapY=0;
 let mapDrag=null,suppressMapClick=false;
 const PRODUCTIVITY=[0.7,0.85,1,1.15,1.3];
-function initWorker(w,i=0){w.productivity ??= PRODUCTIVITY[i%5];w.expectedWage ??= 15+(i%7)*5;w.qualification ??= 'worker';w.training ??= null;w.schoolRole ??= null;w.primaryDiploma ??= (w.qualification!=='worker');w.happiness ??= 50;w.hunger ??= 100;w.alcoholExposure ??= 0;w.tobaccoExposure ??= 0;w.lastConsumerDay ??= -1;w.bornDay ??= -25*YEAR_DAYS;w.parentIds ??= [];w.partnerId ??= null;w.children ??= [];return w}
+function initWorker(w,i=0){w.productivity ??= PRODUCTIVITY[i%5];w.expectedWage ??= 15+(i%7)*5;w.qualification ??= 'worker';w.training ??= null;w.schoolRole ??= null;w.primaryDiploma ??= (w.qualification!=='worker');w.happiness ??= 50;w.educationLevel ??= 'none';w.smokingProfile ??= 'none';w.alcoholProfile ??= 'none';w.hunger ??= 100;w.alcoholExposure ??= 0;w.tobaccoExposure ??= 0;w.lastConsumerDay ??= -1;w.bornDay ??= -25*YEAR_DAYS;w.parentIds ??= [];w.partnerId ??= null;w.children ??= [];return w}
 function initAgent(a){a.stock ||= {};for(const item of Object.keys(ITEMS))a.stock[item] ??= 0;a.managers ??= {hr:[],trader:[]};a.tradePolicies ??= {};return a}
 function canHire(a){return !!a.managers?.hr?.length}
 function canTrade(a){return !!a.managers?.trader?.length}
@@ -37,7 +37,33 @@ function availableSchoolSeats(){return schoolAssignments().filter(a=>a.teacher).
 function canRecruitExecutive(){return activeSchoolStaff('principal').length>0}
 
 function owner(id,name,kind,pos,type){return initAgent({id,name,kind,cash:100,stock:{food:0,wheat:0,wood:0,ore:0},buildings:[{id:id+'-1',type,pos,wage:20}],alive:true})}
-function fresh(){let agents={player:owner('player','Vous','human',POS[0],null)};for(const [id,name,type,pos] of AI_SPECS)agents[id]=owner(id,name,'ai',pos,type);agents.player.buildings=[];agents.education=initAgent({id:'education',name:'Éducation publique',kind:'public',cash:0,stock:{food:0,wheat:0,wood:0,ore:0},buildings:[{id:'public-school',type:'school',pos:'9,1',wage:0},{id:'public-university',type:'university',pos:'9,2',wage:0}],alive:true});let workers=Array.from({length:100},(_,i)=>{const age=i<24?25:i<44?(i-24)%18:18+(i*7)%73;return initWorker({id:'w'+i,home:HOMES.filter(home=>!AI_SPECS.some(x=>x[3]===home))[i%24],cash:100,food:50,hunger:100,health:3,job:null,alive:true,bornDay:-age*YEAR_DAYS,lastBirth:-YEAR_DAYS,adult:age>=18},i)});workers[0].qualification='teacher';workers[0].schoolRole='teacher';workers[1].qualification='principal';workers[1].schoolRole='principal';workers[2].qualification='professor';workers[2].schoolRole='professor';for(let i=0;i<3;i++)workers[i].primaryDiploma=true;return {version:VERSION,started:false,gameMs:0,lastReal:Date.now(),selected:POS[0],agents,workers,orders:[],trades:[],nextOrder:1,nextBuilding:2,log:['Choisissez votre bâtiment de départ.'],lastAiCycle:-1,nextWorker:100,births:0,immigrants:0,bakeryContracts:[],nextBakeryContract:1,acquisitionOffers:[],nextAcquisitionOffer:1,houses:[],nextHouse:1,bank:{loans:[],nextLoan:1,issued:0,repaid:0,ubiIssued:0,defaults:0}}}
+function sampleFrenchPopulation(workers){
+ // INSEE 2025 (25-64 ans) : 15,3 % brevet ou moins, 20,7 % CAP/BEP, 19,1 % bac, 44,7 % supérieur.
+ const adults=workers.filter(w=>w.adult);
+ const shuffled=[...adults].sort(()=>Math.random()-.5);
+ shuffled.forEach((w,i)=>{
+  const r=i/shuffled.length;
+  w.educationLevel=r<.153?'none':r<.360?'vocational':r<.551?'baccalaureate':'higher';
+  w.primaryDiploma=w.educationLevel!=='none';
+  if(w.educationLevel==='vocational'||w.educationLevel==='baccalaureate'){
+   const jobs=['farmer','baker','miner','lumberjack','tailor','brewer','distiller','tobacconist'];
+   w.qualification=jobs[i%jobs.length];
+  }else if(w.educationLevel==='higher'){
+   const roles=['hr','trader','teacher','principal','professor'];
+   w.qualification=roles[i%roles.length];
+  }
+ });
+ // Baromètre Santé publique France 2024 : 18,2 % fumeurs quotidiens, 25 % tous fumeurs.
+ const smokers=[...adults.filter(w=>-w.bornDay/YEAR_DAYS<=75)].sort(()=>Math.random()-.5);
+ smokers.forEach((w,i)=>{const r=i/smokers.length;w.smokingProfile=r<.182?'daily':r<.25?'occasional':'none'});
+ // 54,7 % consommation au cours des sept derniers jours, 22,2 % au-delà des repères.
+ const drinkers=[...adults].sort(()=>Math.random()-.5);
+ drinkers.forEach((w,i)=>{const r=i/drinkers.length;w.alcoholProfile=r<.222?'high':r<.547?'moderate':'none'});
+ for(const [i,role] of [[0,'teacher'],[1,'principal'],[2,'professor']]){
+  workers[i].qualification=role;workers[i].schoolRole=role;workers[i].primaryDiploma=true;workers[i].educationLevel='higher';
+ }
+}
+function fresh(){let agents={player:owner('player','Vous','human',POS[0],null)};for(const [id,name,type,pos] of AI_SPECS)agents[id]=owner(id,name,'ai',pos,type);agents.player.buildings=[];agents.education=initAgent({id:'education',name:'Éducation publique',kind:'public',cash:0,stock:{food:0,wheat:0,wood:0,ore:0},buildings:[{id:'public-school',type:'school',pos:'9,1',wage:0},{id:'public-university',type:'university',pos:'9,2',wage:0}],alive:true});let workers=Array.from({length:100},(_,i)=>{const age=i<24?25:i<44?(i-24)%18:18+(i*7)%73;return initWorker({id:'w'+i,home:HOMES.filter(home=>!AI_SPECS.some(x=>x[3]===home))[i%24],cash:100,food:50,hunger:100,health:3,job:null,alive:true,bornDay:-age*YEAR_DAYS,lastBirth:-YEAR_DAYS,adult:age>=18},i)});sampleFrenchPopulation(workers);return {version:VERSION,started:false,gameMs:0,lastReal:Date.now(),selected:POS[0],agents,workers,orders:[],trades:[],nextOrder:1,nextBuilding:2,log:['Choisissez votre bâtiment de départ.'],lastAiCycle:-1,nextWorker:100,births:0,immigrants:0,bakeryContracts:[],nextBakeryContract:1,acquisitionOffers:[],nextAcquisitionOffer:1,houses:[],nextHouse:1,bank:{loans:[],nextLoan:1,issued:0,repaid:0,ubiIssued:0,defaults:0}}}
 function valid(s){return s&&[3,4,5,6].includes(s.version)&&s.agents?.player&&Array.isArray(s.orders)&&Array.isArray(s.workers)&&Number.isFinite(s.gameMs)}
 function migrate(s){if(s.version===3){s.version=4;s.nextWorker=s.workers.length;s.births=0;for(let w of s.workers){w.bornDay=-10;w.lastBirth=-10;w.adult=true}noteMigration(s)}if([4,5,6].includes(s.version)){s.version=6;s.houses ||= [];s.nextHouse ||= 1;for(const a of Object.values(s.agents))initAgent(a);s.bakeryContracts ||= [];s.nextBakeryContract ||= 1;s.acquisitionOffers ||= [];s.nextAcquisitionOffer ||= 1;for(let i=0;i<s.workers.length;i++){let w=initWorker(s.workers[i],i);w.rentHome ??= null;if(w.adult&&w.bornDay>-18*YEAR_DAYS)w.bornDay=-25*YEAR_DAYS}for(const a of Object.values(s.agents)){initAgent(a);a.stock.wheat ??= 0}if(!s.workers.some(w=>w.qualification==='teacher')){let w=s.workers.find(w=>w.alive&&w.adult&&!w.job&&!w.managerFor);if(w){w.qualification='teacher';w.schoolRole='teacher'}}if(!s.workers.some(w=>w.qualification==='professor')){let w=s.workers.find(w=>w.alive&&w.adult&&!w.job&&!w.managerFor&&!w.schoolRole&&w.qualification==='worker');if(w){w.qualification='professor';w.schoolRole='professor';w.primaryDiploma=true}}if(!s.workers.some(w=>w.qualification==='principal')){let w=s.workers.find(w=>w.alive&&w.adult&&!w.job&&!w.managerFor&&w.qualification==='worker');if(w){w.qualification='principal';w.schoolRole='principal'}}for(const [id,name,type,preferred] of AI_SPECS){if(s.agents[id])continue;let used=new Set(Object.values(s.agents).flatMap(a=>a.buildings.map(b=>b.pos)));let homes=new Set(s.workers.filter(w=>w.alive).map(w=>w.home));let pos=[preferred,...Array.from({length:64},(_,i)=>i)].find(p=>!roadAt(p)&&!used.has(p)&&!homes.has(p)&&!s.houses.some(h=>h.pos===p));if(pos===undefined)continue;s.agents[id]=owner(id,name,'ai',pos,type);s.agents[id].stock[TYPES[type].out]=12}}s.agents.education ||= initAgent({id:'education',name:'Éducation publique',kind:'public',cash:0,stock:{food:0,wheat:0,wood:0,ore:0},buildings:[{id:'public-school',type:'school',pos:'9,1',wage:0},{id:'public-university',type:'university',pos:'9,2',wage:0}],alive:true});for(const w of s.workers)if(['teacher','principal','professor','hr','trader'].includes(w.qualification))w.primaryDiploma=true;s.bank ||= {loans:[],nextLoan:1,issued:0,repaid:0,ubiIssued:0,defaults:0};return s}
 function noteMigration(s){s.log.unshift('Sauvegarde v0.3 migrée vers v0.4 : économie conservée.')}
@@ -262,7 +288,10 @@ function annualMortality(age){
 function mortalityProbability(w){
  const age=Math.max(0,Math.floor((Math.floor(state.gameMs/DAY_MS)-w.bornDay)/YEAR_DAYS));
  const base=annualMortality(age);
- const multiplier=1+Math.min(2,(w.alcoholExposure||0)*.12)+Math.min(2,(w.tobaccoExposure||0)*.08);
+ // Coefficients simplifiés pour le jeu, non validés comme tables actuarielles.
+ const smoking=w.smokingProfile==='daily'?2:w.smokingProfile==='occasional'?1.2:1;
+ const alcohol=w.alcoholProfile==='high'?1.5:w.alcoholProfile==='moderate'?1.05:1;
+ const multiplier=smoking*alcohol*(1+Math.min(.3,(w.alcoholExposure||0)*.02)+Math.min(.3,(w.tobaccoExposure||0)*.02));
  return 1-Math.pow(1-Math.min(.99,base*multiplier),1/YEAR_DAYS);
 }
 function workerPurchases(day){
@@ -271,7 +300,7 @@ function workerPurchases(day){
   if(!w.alive||!w.adult||w.lastConsumerDay===day)continue;
   w.lastConsumerDay=day;
   // Les décisions d'achat sont individuelles, limitées au budget disponible.
-  for(const [item,price,desire] of [['beer',15,.08],['whisky',25,.025],['cigarettes',12,.045]]){
+  for(const [item,price,desire] of [['beer',15,w.alcoholProfile==='high'?.55:w.alcoholProfile==='moderate'?.15:0],['whisky',25,w.alcoholProfile==='high'?.14:w.alcoholProfile==='moderate'?.015:0],['cigarettes',12,w.smokingProfile==='daily'?.8:w.smokingProfile==='occasional'?.08:0]]){
    if(w.cash<price+20||Math.random()>=desire)continue;
    const seller=sellers.find(a=>a.stock[item]>=1&&a.buildings.some(b=>b.type===(item==='beer'?'brewery':item==='whisky'?'distillery':'tobacconist')&&ready(b)));
    if(!seller)continue;
