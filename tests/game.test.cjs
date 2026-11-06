@@ -235,3 +235,17 @@ test('formation ouvrière de 360 jours et cadre de 720 jours',()=>{
  assert.equal(g.run("trainWorker('"+id+"','hr')"),true);
  assert.equal(g.run("state.workers.find(w=>w.id==='"+id+"').training.days"),720);
 });
+
+test('famille stable, enfant à charge et majorité à dix-huit ans',()=>{
+ const g=game();g.run("startGame('farm')");
+ g.run("state.workers[3].cash=500;state.workers[4].cash=500;state.workers[3].food=5;state.workers[4].food=5;state.workers[3].home=0;state.workers[4].home=1;state.workers[3].lastBirth=-360;state.workers[4].lastBirth=-360;state.workers.slice(5).forEach(w=>w.cash=0);state.workers.slice(0,3).forEach(w=>w.cash=0);reproduce(0)");
+ assert.equal(g.run("state.births"),1);
+ const id=g.run("state.workers.at(-1).id");
+ assert.equal(g.run("state.workers.at(-1).adult"),false);
+ assert.equal(g.run("state.workers.at(-1).parentIds.length"),2);
+ assert.equal(g.run("state.workers[3].partnerId"),g.run("state.workers[4].id"));
+ g.run("reproduce(1)");
+ assert.equal(g.run("state.births"),1);
+ g.run("state.gameMs=ADULT_AGE_DAYS*DAY_MS;state.workers.at(-1).food=5;daily()");
+ assert.equal(g.run("state.workers.find(w=>w.id==='"+id+"').adult"),true);
+});
