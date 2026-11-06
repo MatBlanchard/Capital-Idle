@@ -28,7 +28,7 @@ test('école, formation et recrutement après diplôme',()=>{
  const g=game();g.run("startGame('farm')");
  g.run("state.agents.player.stock.wood=100;state.agents.player.stock.ore=100;state.selected=60;build('school');state.gameMs+=4*DAY_MS;finishConstruction()");
  assert.equal(g.run("state.agents.player.buildings.some(b=>b.type==='school')"),true);
- g.run("trainWorker(candidates()[0].id,'farmer');trainingCycle();trainingCycle();trainWorker(candidates().find(w=>w.primaryDiploma).id,'hr');trainingCycle();trainingCycle()");
+ g.run("trainWorker(candidates()[0].id,'farmer');state.workers.filter(w=>w.training).forEach(w=>w.training.days=1);trainingCycle();trainWorker(candidates().find(w=>w.primaryDiploma).id,'hr');state.workers.filter(w=>w.training).forEach(w=>w.training.days=1);trainingCycle()");
  assert.equal(g.run("state.workers.some(w=>w.qualification==='hr')"),true);
  g.run("appointManager(state.workers.find(w=>w.qualification==='hr'&&!w.managerFor).id,'hr')");
  assert.equal(g.run("canHire(agent('player'))"),true);
@@ -90,7 +90,7 @@ test('un professeur formé peut enseigner et augmenter les places',()=>{
  const g=game();g.run("startGame('farm')");
  g.run("agent('player').stock.wood=100;agent('player').stock.ore=100;state.selected=60;build('school');state.gameMs+=4*DAY_MS;finishConstruction();agent('player').cash=500");
  const id=g.run("candidates().find(w=>w.qualification==='worker').id");
- g.run("trainWorker('"+id+"','teacher');trainingCycle();trainingCycle();appointSchoolStaff('"+id+"','teacher')");
+ g.run("trainWorker('"+id+"','teacher');state.workers.filter(w=>w.training).forEach(w=>w.training.days=1);trainingCycle();appointSchoolStaff('"+id+"','teacher')");
  assert.equal(g.run("activeSchoolStaff('teacher').length"),2);
  assert.equal(g.run("availableSchoolSeats()"),4);
 });
@@ -131,7 +131,7 @@ test('marché du travail : candidats sans emploi et hors formation',()=>{
 });
 
 test('une journée dure dix minutes réelles',()=>{
- const g=game();assert.equal(g.run("DAY_MS"),600000);
+ const g=game();assert.equal(g.run("DAY_MS"),20000);assert.equal(g.run("DAY_MS*MONTH_DAYS"),600000);
 });
 test('carte navigable vers des coordonnées négatives et positives',()=>{
  const g=game();g.run("startGame('farm');moveMap(-1,-1);tab('world')");
@@ -221,7 +221,17 @@ test('primaire requis pour une formation universitaire',()=>{
  const id=g.run("candidates().find(w=>!w.primaryDiploma).id");
  assert.notEqual(g.run("trainWorker('"+id+"','hr')"),true);
  assert.equal(g.run("trainWorker('"+id+"','farmer')"),true);
- g.run("trainingCycle();trainingCycle()");
+ g.run("state.workers.filter(w=>w.training).forEach(w=>w.training.days=1);trainingCycle()");
  assert.equal(g.run("state.workers.find(w=>w.id==='"+id+"').primaryDiploma"),true);
  assert.equal(g.run("trainWorker('"+id+"','hr')"),true);
+});
+
+test('formation ouvrière de 360 jours et cadre de 720 jours',()=>{
+ const g=game();g.run("startGame('farm');agent('player').cash=500");
+ const id=g.run("candidates().find(w=>!w.primaryDiploma).id");
+ assert.equal(g.run("trainWorker('"+id+"','farmer')"),true);
+ assert.equal(g.run("state.workers.find(w=>w.id==='"+id+"').training.days"),360);
+ g.run("state.workers.find(w=>w.id==='"+id+"').training.days=1;trainingCycle()");
+ assert.equal(g.run("trainWorker('"+id+"','hr')"),true);
+ assert.equal(g.run("state.workers.find(w=>w.id==='"+id+"').training.days"),720);
 });
