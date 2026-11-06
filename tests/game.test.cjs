@@ -103,3 +103,14 @@ test('le proviseur est nécessaire pour recruter les cadres',()=>{
  g.run("state.workers.find(w=>w.qualification==='principal').schoolRole='principal';recruitExecutive('"+id+"','hr')");
  assert.equal(g.run("agent('player').managers.hr.length"),1);
 });
+
+test('page Effectifs : bâtiments, salariés et postes vacants',()=>{
+ const g=game();g.run("startGame('farm');tab('staff')");
+ assert.match(g.ctx.document.getElementById('staffSummary').innerHTML,/0 \/ 3/);
+ assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,/Ferme/);
+ const id=g.run("candidates().find(w=>w.expectedWage<=20).id");
+ g.run("hireWorker('player','"+id+"','player-1');tab('staff')");
+ assert.match(g.ctx.document.getElementById('staffSummary').innerHTML,/1 \/ 3/);
+ assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,new RegExp(id));
+ assert.match(g.ctx.document.getElementById('staffSchool').innerHTML,/Professeurs : 1/);
+});
