@@ -16,7 +16,7 @@ function game(){
 }
 test('sauvegarde initiale et migration v5',()=>{
  const g=game();assert.equal(g.run('state.version'),6);
- assert.equal(g.run('state.workers.length'),24);
+ assert.equal(g.run('state.workers.length'),100);
  assert.equal(g.run('migrate({...fresh(),version:5}).version'),6);
 });
 test('recrutement manuel autorisé sans responsable RH',()=>{
@@ -345,4 +345,16 @@ test('commercial : acheter pour maintenir un stock cible sans doubler les ordres
  g.run("playerTradingCycle();playerTradingCycle()");
  assert.equal(g.run("state.orders.filter(o=>o.owner==='player'&&o.item==='wood'&&o.autoTrade).reduce((n,o)=>n+o.qty,0)"),12);
  assert.equal(g.run("agent('player').cash"),880);
+});
+
+test('faim : pain quotidien ajoute un point et absence de pain retire trois points',()=>{
+ const g=game();g.run("startGame('farm');state.workers[0].hunger=50;state.workers[0].food=2;state.workers[0].bornDay=-25*YEAR_DAYS;Math.random=()=>1;daily()");
+ assert.equal(g.run("state.workers[0].hunger"),51);
+ g.run("state.workers[0].food=0;daily()");
+ assert.equal(g.run("state.workers[0].hunger"),48);
+});
+test('immigration : nouveaux habitants au bout de trente jours',()=>{
+ const g=game();g.run("startGame('farm');state.gameMs=30*DAY_MS;Math.random=()=>0;immigration(30)");
+ assert.equal(g.run("state.immigrants"),1);
+ assert.equal(g.run("state.workers.length"),101);
 });
