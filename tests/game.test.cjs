@@ -321,7 +321,7 @@ test('boissons : achats individuels sans distribution par employeur',()=>{
  const g=game();g.run("startGame('farm')");
  assert.equal(g.run("distributeWellbeing('player','beer')"),false);
  g.run("state.workers[5].cash=1000;agent('moulin').stock.beer=10;agent('moulin').buildings.push({id:'brew-test',type:'brewery',pos:'10,4',wage:20})");
- g.run("Math.random=()=>0;workerPurchases(2)");
+ const originalRandom=Math.random;try{Math.random=()=>0;g.run("workerPurchases(2)")}finally{Math.random=originalRandom}
  assert.equal(g.run("state.workers[5].alcoholExposure>0"),true);
  assert.equal(g.run("state.workers[5].cash<1000"),true);
 });
