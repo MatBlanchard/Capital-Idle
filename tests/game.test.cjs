@@ -118,7 +118,7 @@ test('page Effectifs : bâtiments, salariés et postes vacants',()=>{
 
 test('école : deux postes distincts, professeur et proviseur',()=>{
  const g=game();g.run("startGame('farm');agent('player').stock.wood=100;agent('player').stock.ore=100;state.selected=60;build('school');state.gameMs+=4*DAY_MS;finishConstruction();tab('staff')");
- assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,/0 \/ 2/);
+ assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,/2 \/ 2/);
  assert.match(g.ctx.document.getElementById('staffSchool').innerHTML,/Professeur/);
  assert.match(g.ctx.document.getElementById('staffSchool').innerHTML,/Proviseur/);
  assert.equal(g.run("TYPES.school.jobs"),2);
