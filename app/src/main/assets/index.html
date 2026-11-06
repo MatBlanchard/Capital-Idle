@@ -116,17 +116,20 @@ function orderSelectedBakeryService(){
  if(value!==null&&!orderBakeryService('player',b.id,Number(value)))toast('Commande impossible : blé, argent ou personnel insuffisant');
 }
 function processBakeryContracts(days){
+ const used=new Map();
  for(const c of state.bakeryContracts.filter(c=>c.status==='pending')){
   const b=allBuildings().find(b=>b.id===c.buildingId),owner=agent(c.ownerId),client=agent(c.clientId);
   if(!b||!ready(b)||!owner||!client){if(client){client.stock.wheat=rnd(client.stock.wheat+2*c.remaining);client.cash=rnd(client.cash+c.remaining*c.price)}c.status='cancelled';continue}
   const staff=state.workers.filter(w=>w.alive&&w.job===b.id);
   const capacity=Math.max(0,staff.reduce((n,w)=>n+w.productivity,0)*TYPES.bakery.rate*days);
-  const done=Math.min(c.remaining,capacity);
+  const done=Math.min(c.remaining,Math.max(0,capacity-(used.get(b.id)||0)));
   if(done<=0)continue;
+  used.set(b.id,(used.get(b.id)||0)+done);
   c.remaining=rnd(c.remaining-done);client.stock.food=rnd(client.stock.food+done);
   owner.cash=rnd(owner.cash+done*c.price);
   if(c.remaining<0.00001){c.remaining=0;c.status='completed'}
  }
+ return used;
 }
 function aiBakeryServices(){
  for(const id of AI_IDS){
@@ -337,7 +340,7 @@ function aiCycle(){
  }
  jobAssignment();aiRecruit();
 }
-function simulate(delta){if(!state.started)return;let remaining=Math.min(delta,DAY_MS*7);while(remaining>0){let step=Math.min(remaining,DAY_MS/4,DAY_MS-state.gameMs%DAY_MS);let days=step/DAY_MS;let bs=allBuildings();for(let b of bs){if(!ready(b)||!TYPES[b.type].out)continue;let a=agent(b.owner),staff=state.workers.filter(w=>w.alive&&w.job===b.id);let paid=0;for(let w of staff){let pay=rnd(b.wage*days);if(a.cash+1e-6>=pay){a.cash=rnd(a.cash-pay);w.cash=rnd(w.cash+pay);paid++}}if(paid){let output=TYPES[b.type].rate*staff.slice(0,paid).reduce((sum,w)=>sum+w.productivity,0)*days,t=TYPES[b.type];if(t.input){output=Math.min(output,a.stock[t.input]/t.inputQty);a.stock[t.input]=rnd(a.stock[t.input]-output*t.inputQty)}a.stock[t.out]=rnd(a.stock[t.out]+output)}}processBakeryContracts(days);state.gameMs+=step;remaining-=step;finishConstruction();if(Math.abs(state.gameMs%DAY_MS)<1)daily()}}
+function simulate(delta){if(!state.started)return;let remaining=Math.min(delta,DAY_MS*7);while(remaining>0){let step=Math.min(remaining,DAY_MS/4,DAY_MS-state.gameMs%DAY_MS);let days=step/DAY_MS;let bs=allBuildings(),contractProduction=processBakeryContracts(days);for(let b of bs){if(!ready(b)||!TYPES[b.type].out)continue;let a=agent(b.owner),staff=state.workers.filter(w=>w.alive&&w.job===b.id);let paid=0;for(let w of staff){let pay=rnd(b.wage*days);if(a.cash+1e-6>=pay){a.cash=rnd(a.cash-pay);w.cash=rnd(w.cash+pay);paid++}}if(paid){let output=Math.max(0,TYPES[b.type].rate*staff.slice(0,paid).reduce((sum,w)=>sum+w.productivity,0)*days-(contractProduction.get(b.id)||0)),t=TYPES[b.type];if(t.input){output=Math.min(output,a.stock[t.input]/t.inputQty);a.stock[t.input]=rnd(a.stock[t.input]-output*t.inputQty)}a.stock[t.out]=rnd(a.stock[t.out]+output)}}state.gameMs+=step;remaining-=step;finishConstruction();if(Math.abs(state.gameMs%DAY_MS)<1)daily()}}
 function advance(){let now=Date.now(),delta=Math.max(0,now-state.lastReal);state.lastReal=now;if(!state.started)return;simulate(delta);let cycle=Math.floor(state.gameMs/(DAY_MS/4));if(cycle>state.lastAiCycle){state.lastAiCycle=cycle;aiCycle()}render();save()}
 function tab(k){current=k;for(let x of ['world','market','economy','bank','labor','staff','hr','housing','save'])$(x).classList.toggle('hidden',x!==k);render()}
 function render(){if(!state.started){$('start').classList.remove('hidden');return}let p=agent('player'),day=Math.floor(state.gameMs/DAY_MS)+1,hour=Math.floor((state.gameMs%DAY_MS)/(DAY_MS/24)),minute=Math.floor((state.gameMs%(DAY_MS/24))/(DAY_MS/1440));$('stats').innerHTML=`<span>💰 ${fmt(p.cash)} €</span><span>🥖 ${fmt(p.stock.food)}</span><span>🌾 ${fmt(p.stock.wheat)}</span><span>🪵 ${fmt(p.stock.wood)}</span><span>🪨 ${fmt(p.stock.ore)}</span><span>📅 J${day} ${String(hour).padStart(2,'0')}:${String(minute).padStart(2,'0')} ${hour>=6&&hour<18?'☀️':'🌙'}</span>`;
