@@ -101,7 +101,7 @@ function trainWorker(workerId,role){
  if(!primary&&!higher||!w||!w.alive||!w.adult||w.job||w.managerFor||w.schoolRole||w.training||a.cash<50)return toast('Formation impossible : candidat ou fonds indisponibles');
  if(primary&&(!allBuildings().some(b=>b.type==='school'&&ready(b))||availableSchoolSeats()<=0))return toast('École primaire et professeur nécessaires');
  if(higher&&(!w.primaryDiploma||!allBuildings().some(b=>b.type==='university'&&ready(b))||availableUniversitySeats()<=0))return toast('Diplôme primaire, université et professeur universitaire nécessaires');
- a.cash=rnd(a.cash-50);w.training={owner:'player',role,level:primary?'primary':'university',days:primary?YEAR_DAYS:2*YEAR_DAYS};note('Formation '+ROLE_NAMES[role]+' commencée pour '+w.id+' ('+(primary?'1 an':'2 ans')+'));save();render();return true;
+ a.cash=rnd(a.cash-50);w.training={owner:'player',role,level:primary?'primary':'university',days:primary?YEAR_DAYS:2*YEAR_DAYS};note('Formation '+ROLE_NAMES[role]+' commencée pour '+w.id+' ('+(primary?'1 an':'2 ans')+')');save();render();return true;
 }
 function trainingCycle(){
  for(const w of state.workers){if(!w.alive||!w.training)continue;w.training.days--;
