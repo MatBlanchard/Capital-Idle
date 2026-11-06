@@ -22,8 +22,8 @@ function schoolAssignments(){
  const used=new Set();
  return schools.map(b=>{const staff={building:b,teacher:null,principal:null};for(const role of ['teacher','principal']){const w=available.find(w=>w.schoolRole===role&&!used.has(w.id));if(w){staff[role]=w;used.add(w.id)}}return staff});
 }
-function activeSchoolStaff(role){return schoolAssignments().map(a=>a[role]).filter(Boolean)}
-function availableSchoolSeats(){return activeSchoolStaff('teacher').length*2-state.workers.filter(w=>w.training).length}
+function activeSchoolStaff(role){return state.workers.filter(w=>w.alive&&w.adult&&w.qualification===role&&w.schoolRole===role)}
+function availableSchoolSeats(){return schoolAssignments().filter(a=>a.teacher).length*2-state.workers.filter(w=>w.training).length}
 function canRecruitExecutive(){return activeSchoolStaff('principal').length>0}
 
 function owner(id,name,kind,pos,type){return initAgent({id,name,kind,cash:100,stock:{food:0,wood:0,ore:0},buildings:[{id:id+'-1',type,pos,wage:20}],alive:true})}
