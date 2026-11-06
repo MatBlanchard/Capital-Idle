@@ -173,3 +173,26 @@ test('revenu de base mensuel : 100 euros tous les 30 jours',()=>{
  assert.equal(g.run("agent('player').cash"),before.owner+100);
  assert.equal(g.run("state.workers[0].cash"),before.worker+100);
 });
+
+test('banque centrale : création, remboursement et destruction du principal',()=>{
+ const g=game();g.run("startGame('farm')");
+ const before=g.run("agent('player').cash");
+ assert.equal(g.run("requestCredit('player',300,6).approved"),true);
+ assert.equal(g.run("agent('player').cash"),before+300);
+ assert.equal(g.run("centralBank().issued"),300);
+ g.run("state.gameMs=30*DAY_MS;daily()");
+ assert.equal(g.run("centralBank().repaid"),50);
+ assert.equal(g.run("centralBank().loans[0].balance"),250);
+ assert.equal(g.run("agent('player').cash"),before+300-50+100);
+});
+test('banque centrale : refus des demandes insolvables',()=>{
+ const g=game();g.run("startGame('farm')");
+ assert.equal(g.run("requestCredit('player',100000,6).approved"),false);
+ assert.equal(g.run("requestCredit('player',100,0).approved"),false);
+ assert.equal(g.run("centralBank().issued"),0);
+});
+test('banque centrale : conservation des données dans les sauvegardes',()=>{
+ const g=game();g.run("startGame('farm');requestCredit('player',120,6)");
+ assert.equal(g.run("migrate(JSON.parse(JSON.stringify(state))).bank.loans.length"),1);
+ assert.equal(g.run("migrate({...fresh(),bank:undefined}).bank.loans.length"),0);
+});
