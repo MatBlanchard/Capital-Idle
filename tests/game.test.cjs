@@ -160,3 +160,16 @@ test('les coûts de construction sont majorés et les bâtiments ont un délai',
  g.run("simulate(DAY_MS)");
  assert.equal(g.run("ready(agent('player').buildings.find(b=>b.type==='mine'))"),true);
 });
+
+test('revenu de base mensuel : 100 euros tous les 30 jours',()=>{
+ const g=game();
+ assert.equal(g.run('MONTH_DAYS'),30);
+ g.run("state.gameMs=DAY_MS;state.workers[0].food=100;state.workers[0].health=100");
+ const before=g.run("({owner:agent('player').cash,worker:state.workers[0].cash})");
+ g.run("daily()");
+ assert.equal(g.run("agent('player').cash"),before.owner);
+ assert.equal(g.run("state.workers[0].cash"),before.worker);
+ g.run("state.gameMs=30*DAY_MS;daily()");
+ assert.equal(g.run("agent('player').cash"),before.owner+100);
+ assert.equal(g.run("state.workers[0].cash"),before.worker+100);
+});
