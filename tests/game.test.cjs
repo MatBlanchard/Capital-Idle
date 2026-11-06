@@ -203,7 +203,7 @@ test('ferme produit du blé et boulangerie transforme deux blés en un pain',()=
  assert.equal(g.run("TYPES.bakery.out"),'food');
  assert.equal(g.run("TYPES.bakery.input"),'wheat');
  const before=g.run("agent('moulin').stock.food");
- g.run("agent('moulin').stock.wheat=20;agent('moulin').cash=1000;state.workers.push(initWorker({id:'w-baker',home:0,cash:100,food:3,health:3,job:'moulin-1',alive:true,adult:true,productivity:1,expectedWage:10}));simulate(DAY_MS/2)");
+ g.run("state.workers.filter(w=>w.job==='moulin-1').forEach(w=>w.job=null);agent('moulin').stock.wheat=20;agent('moulin').cash=1000;state.workers.push(initWorker({id:'w-baker',home:0,cash:100,food:3,health:3,job:'moulin-1',alive:true,adult:true,productivity:1,expectedWage:10}));simulate(DAY_MS/2)");
  assert.equal(g.run("agent('moulin').stock.food"),before+4);
  assert.equal(g.run("agent('moulin').stock.wheat"),12);
 });
@@ -320,7 +320,7 @@ test('mortalité : probabilité croissante avec âge et exposition',()=>{
 test('boissons : achats individuels sans distribution par employeur',()=>{
  const g=game();g.run("startGame('farm')");
  assert.equal(g.run("distributeWellbeing('player','beer')"),false);
- g.run("state.workers[5].cash=1000;agent('moulin').stock.beer=10;agent('moulin').buildings.push({id:'brew-test',type:'brewery',pos:'10,4',wage:20})");
+ g.run("state.workers[5].cash=1000;state.workers[5].alcoholProfile='high';agent('moulin').stock.beer=10;agent('moulin').buildings.push({id:'brew-test',type:'brewery',pos:'10,4',wage:20})");
  const originalRandom=Math.random;try{Math.random=()=>0;g.run("workerPurchases(2)")}finally{Math.random=originalRandom}
  assert.equal(g.run("state.workers[5].alcoholExposure>0"),true);
  assert.equal(g.run("state.workers[5].cash<1000"),true);
