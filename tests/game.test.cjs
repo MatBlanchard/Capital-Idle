@@ -26,7 +26,7 @@ test('recrutement manuel autorisé sans responsable RH',()=>{
 });
 test('école, formation et recrutement après diplôme',()=>{
  const g=game();g.run("startGame('farm')");
- g.run("state.agents.player.stock.wood=20;state.agents.player.stock.ore=10;state.selected=60;build('school')");
+ g.run("state.agents.player.stock.wood=100;state.agents.player.stock.ore=100;state.selected=60;build('school');simulate(4*DAY_MS)");
  assert.equal(g.run("state.agents.player.buildings.some(b=>b.type==='school')"),true);
  g.run("trainWorker(candidates()[0].id,'hr');trainingCycle();trainingCycle()");
  assert.equal(g.run("state.workers.some(w=>w.qualification==='hr')"),true);
@@ -88,7 +88,7 @@ test('un professeur et un proviseur préexistent',()=>{
 });
 test('un professeur formé peut enseigner et augmenter les places',()=>{
  const g=game();g.run("startGame('farm')");
- g.run("agent('player').stock.wood=20;agent('player').stock.ore=10;state.selected=60;build('school');agent('player').cash=500");
+ g.run("agent('player').stock.wood=100;agent('player').stock.ore=100;state.selected=60;build('school');simulate(4*DAY_MS);agent('player').cash=500");
  const id=g.run("candidates().find(w=>w.qualification==='worker').id");
  g.run("trainWorker('"+id+"','teacher');trainingCycle();trainingCycle();appointSchoolStaff('"+id+"','teacher')");
  assert.equal(g.run("activeSchoolStaff('teacher').length"),2);
@@ -117,7 +117,7 @@ test('page Effectifs : bâtiments, salariés et postes vacants',()=>{
 });
 
 test('école : deux postes distincts, professeur et proviseur',()=>{
- const g=game();g.run("startGame('farm');agent('player').stock.wood=20;agent('player').stock.ore=10;state.selected=60;build('school');tab('staff')");
+ const g=game();g.run("startGame('farm');agent('player').stock.wood=100;agent('player').stock.ore=100;state.selected=60;build('school');simulate(4*DAY_MS);tab('staff')");
  assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,/2 \/ 2/);
  assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,/Professeur/);
  assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,/Proviseur/);
@@ -146,4 +146,17 @@ test('consignes RH : filtrage par productivité et salaire',()=>{
  assert.match(g.ctx.document.getElementById('hrBoard').innerHTML,/Productivité minimale/);
  assert.equal(g.run("hrPolicy(agent('player')).minProductivity"),1.3);
  assert.equal(g.run("hrPolicy(agent('player')).maxWage"),10);
+});
+
+test('les coûts de construction sont majorés et les bâtiments ont un délai',()=>{
+ const g=game();g.run("startGame('farm');agent('player').stock.wood=100;agent('player').stock.ore=100;state.selected=60;build('mine')");
+ assert.equal(g.run("TYPES.mine.cost.wood"),40);
+ assert.equal(g.run("TYPES.mine.cost.ore"),18);
+ assert.equal(g.run("agent('player').stock.wood"),60);
+ assert.equal(g.run("agent('player').stock.ore"),82);
+ assert.equal(g.run("ready(agent('player').buildings.find(b=>b.type==='mine'))"),false);
+ g.run("simulate(3*DAY_MS)");
+ assert.equal(g.run("ready(agent('player').buildings.find(b=>b.type==='mine'))"),false);
+ g.run("simulate(DAY_MS)");
+ assert.equal(g.run("ready(agent('player').buildings.find(b=>b.type==='mine'))"),true);
 });
