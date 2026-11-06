@@ -11,7 +11,7 @@ const $=id=>document.getElementById(id),rnd=n=>Math.round(n*100)/100,fmt=n=>(Num
 let state,current='world',toastTimer,mapX=0,mapY=0;
 const PRODUCTIVITY=[0.7,0.85,1,1.15,1.3];
 function initWorker(w,i=0){w.productivity ??= PRODUCTIVITY[i%5];w.expectedWage ??= 15+(i%7)*5;w.qualification ??= 'worker';w.training ??= null;w.schoolRole ??= null;w.primaryDiploma ??= (w.qualification!=='worker');w.happiness ??= 50;w.alcoholExposure ??= 0;w.tobaccoExposure ??= 0;w.lastConsumerDay ??= -1;w.bornDay ??= -25*YEAR_DAYS;w.parentIds ??= [];w.partnerId ??= null;w.children ??= [];return w}
-function initAgent(a){a.stock ||= {};for(const item of Object.keys(ITEMS))a.stock[item] ??= 0;a.managers ??= {hr:[],trader:[]};return a}
+function initAgent(a){a.stock ||= {};for(const item of Object.keys(ITEMS))a.stock[item] ??= 0;a.managers ??= {hr:[],trader:[]};a.tradePolicies ??= {};return a}
 function canHire(a){return !!a.managers?.hr?.length}
 function canTrade(a){return !!a.managers?.trader?.length}
 function candidates(){return state.workers.filter(w=>w.alive&&w.adult&&!w.job&&!w.managerFor&&!w.training&&!w.schoolRole)}
@@ -292,14 +292,43 @@ function reproduce(day){
 }
 function cancelWorkerOrders(id){for(let o of state.orders.filter(o=>o.owner===id)){let a=inventory(id);if(o.side==='buy')a.cash=rnd(a.cash+o.qty*o.price);else a.stock[o.item]=rnd(a.stock[o.item]+o.qty);state.orders=state.orders.filter(x=>x!==o)}}
 function cancelAgentOrder(o){let a=inventory(o.owner);if(!a)return;if(o.side==='buy')a.cash=rnd(a.cash+o.qty*o.price);else a.stock[o.item]=rnd(a.stock[o.item]+o.qty);state.orders=state.orders.filter(x=>x!==o)}
+const DEFAULT_TRADE_PRICES={food:10,wheat:7,wood:13,ore:16,flax:9,hops:10,malt:11,clothes:19,beer:16,whisky:26,tobacco:9,cigarettes:13};
+function setTradePolicy(item,mode,quantity,price){
+ const a=agent('player');
+ if(!ITEMS[item]||!['off','sell','buy'].includes(mode)||!Number.isFinite(quantity)||quantity<0||quantity>1000000||!Number.isFinite(price)||price<=0||price>1000000)return false;
+ a.tradePolicies[item]={mode,quantity:rnd(quantity),price:rnd(price)};
+ // Les anciens ordres automatisés sont retirés afin de ne pas contourner la nouvelle consigne.
+ for(const o of [...state.orders])if(o.owner==='player'&&o.item===item&&o.autoTrade)cancelAgentOrder(o);
+ save();render();return true;
+}
+function saveTradePolicy(item){
+ const mode=$('tradeMode-'+item).value,quantity=Number($('tradeQty-'+item).value),price=Number($('tradePrice-'+item).value);
+ if(!setTradePolicy(item,mode,quantity,price))toast('Consigne invalide : vérifiez quantité et prix');
+}
 function playerTradingCycle(){
  const a=agent('player');
  if(!canTrade(a))return;
- for(const b of a.buildings){
-  const item=TYPES[b.type].out;
-  if(!item||a.stock[item]<2||state.orders.some(o=>o.owner==='player'&&o.item===item&&o.side==='sell'))continue;
-  const best=state.orders.filter(o=>o.item===item&&o.side==='buy'&&o.owner!=='player').sort((x,y)=>y.price-x.price)[0];
-  if(best)placeOrder('player','sell',item,Math.min(5,Math.floor(a.stock[item])),best.price,false);
+ for(const item of Object.keys(ITEMS)){
+  const policy=a.tradePolicies[item];
+  if(!policy||policy.mode==='off')continue;
+  const open=state.orders.filter(o=>o.owner==='player'&&o.item===item&&o.autoTrade);
+  const wantedSide=policy.mode==='sell'?'sell':'buy';
+  const reservedSell=open.filter(o=>o.side==='sell').reduce((n,o)=>n+o.qty,0);
+  const reservedBuy=open.filter(o=>o.side==='buy').reduce((n,o)=>n+o.qty,0);
+  // Les fonds et les marchandises immobilisés dans les ordres restent dans le calcul du stock cible.
+  const total=a.stock[item]+reservedSell+reservedBuy;
+  const target=policy.quantity;
+  const required=policy.mode==='sell'?Math.max(0,total-target):Math.max(0,target-total);
+  for(const o of [...open])if(o.side!==wantedSide||Math.abs(o.price-policy.price)>.001||Math.abs(o.qty-required)>.01)cancelAgentOrder(o);
+  const existing=state.orders.filter(o=>o.owner==='player'&&o.item===item&&o.autoTrade&&o.side===wantedSide).reduce((n,o)=>n+o.qty,0);
+  let qty=Math.max(0,required-existing);
+  if(wantedSide==='sell')qty=Math.min(qty,a.stock[item]);
+  else qty=Math.min(qty,Math.floor(a.cash/policy.price*100)/100);
+  qty=rnd(qty);
+  if(qty>.001&&placeOrder('player',wantedSide,item,qty,policy.price,false)){
+   const o=state.orders.findLast(o=>o.owner==='player'&&o.item===item&&o.side===wantedSide&&!o.autoTrade);
+   if(o)o.autoTrade=true;
+  }
  }
 }
 function offerBuildingPurchase(buildingId,amount){
@@ -430,6 +459,7 @@ function render(){if(!state.started){$('start').classList.remove('hidden');retur
  }
  if(current==='housing'){let a=agent('player');$('housingStats').innerHTML='<p>Maisons : '+state.houses.length+' · Louées : '+state.houses.filter(h=>h.tenant).length+' · Recettes locatives : '+fmt(state.houses.filter(h=>h.owner==='player'&&h.tenant).reduce((n,h)=>n+h.rent,0))+' €/jour</p>';$('housingControls').innerHTML='<p>Terrain sélectionné : '+(state.selected+1)+'</p><button onclick="buildHouse()">Construire une maison (8 bois, 3 minerai)</button>';$('housingList').innerHTML=state.houses.map(h=>'<div class="item"><b>🏠 Parcelle '+(h.pos+1)+'</b> · '+(h.owner==='player'?'Votre maison':agent(h.owner).name)+'<p>Loyer : '+fmt(h.rent)+' €/jour · '+(h.tenant?'Occupée':'Libre')+'</p>'+(h.owner==='player'?`<button onclick="setRent('${h.id}',-1)">−1 €</button> <button onclick="setRent('${h.id}',1)">+1 €</button>`:'')+'</div>').join('')||'<p class="muted">Aucune maison construite.</p>'}
  if(current==='market'){let e=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));$('books').innerHTML=Object.keys(ITEMS).map(k=>{let orders=state.orders.filter(o=>o.item===k),buys=orders.filter(o=>o.side==='buy').sort((a,b)=>b.price-a.price||a.id-b.id).slice(0,6),sells=orders.filter(o=>o.side==='sell').sort((a,b)=>a.price-b.price||a.id-b.id).slice(0,6),tr=state.trades.find(t=>t.item===k);return `<div class="item"><b>${ITEMS[k]}</b><p class="muted">Dernier échange : ${tr?fmt(tr.price)+' €':'aucun'}</p><table><tr><th>Achats (prix max)</th><th>Ventes (prix min)</th></tr>${Array.from({length:Math.max(buys.length,sells.length,1)},(_,i)=>`<tr><td>${buys[i]?fmt(buys[i].qty)+' × '+fmt(buys[i].price)+' €':'—'}</td><td>${sells[i]?fmt(sells[i].qty)+' × '+fmt(sells[i].price)+' €':'—'}</td></tr>`).join('')}</table></div>`}).join('');$('myOrders').innerHTML=state.orders.filter(o=>o.owner==='player').map(o=>`<div class="item row"><span>${o.side==='buy'?'ACHAT':'VENTE'} ${ITEMS[o.item]} · ${fmt(o.qty)} × ${fmt(o.price)} €</span><button class="danger" onclick="cancelOrder(${o.id})">Annuler</button></div>`).join('')||'<p class="muted">Aucun ordre ouvert.</p>'}
+ if(current==='market')$('books').innerHTML='<div class="item"><h3>Consignes au commercial</h3><p class="muted">Choisissez pour chaque ressource le stock à conserver ou à atteindre. Le commercial agit uniquement si un commercial est recruté. Les ordres sont exécutés selon les offres du marché.</p>'+Object.keys(ITEMS).map(item=>{const p=agent('player').tradePolicies[item]||{mode:'off',quantity:0,price:DEFAULT_TRADE_PRICES[item]};return '<div class="item"><b>'+ITEMS[item]+'</b> · Stock libre : '+fmt(agent('player').stock[item])+'<div class="formrow"><select id="tradeMode-'+item+'"><option value="off"'+(p.mode==='off'?' selected':'')+'>Désactivé</option><option value="sell"'+(p.mode==='sell'?' selected':'')+'>Garder X, vendre le surplus</option><option value="buy"'+(p.mode==='buy'?' selected':'')+'>Acheter pour atteindre Z</option></select><label>Quantité cible <input id="tradeQty-'+item+'" type="number" min="0" step="0.01" value="'+p.quantity+'"></label><label>Prix unitaire (€) <input id="tradePrice-'+item+'" type="number" min="0.01" step="0.01" value="'+p.price+'"></label><button onclick="saveTradePolicy(\''+item+'\')">Enregistrer</button></div></div>'}).join('')+'</div>'+$('books').innerHTML;
  if(current==='bank'){const bank=centralBank(),debt=bank.loans.reduce((n,l)=>n+l.balance,0);$('bankStats').innerHTML='<p>Monnaie détenue et réservée : <b>'+fmt(monetarySupply())+' €</b> · Dette en cours : <b>'+fmt(debt)+' €</b></p><p>Revenu universel cumulé : '+fmt(bank.ubiIssued)+' € · Crédits créés : '+fmt(bank.issued)+' € · Principal détruit : '+fmt(bank.repaid)+' € · Créances passées en perte : '+fmt(bank.defaults)+' €</p><p>Capacité mensuelle estimée : '+fmt(monthlyCapacity('player'))+' € · Dette personnelle : '+fmt(outstanding('player'))+' €</p>';$('bankLoans').innerHTML='<h3>Mes crédits</h3>'+(bank.loans.filter(l=>l.owner==='player').map(l=>'<div class="item">Crédit #'+l.id+' · Restant : '+fmt(l.balance)+' € · Mensualité : '+fmt(l.payment)+' € · '+(l.defaulted?'Défaut':'Taux 0 %')+'</div>').join('')||'<p class="muted">Aucun crédit.</p>')}
  if(current==='economy'){let alive=state.workers.filter(w=>w.alive);$('workers').innerHTML=`<p>Population vivante : <b>${alive.length}</b> · Naissances : ${state.births||0} · Adultes : ${alive.filter(w=>w.adult).length} · Employés : ${alive.filter(w=>w.job).length} · Sans emploi : ${alive.filter(w=>w.adult&&!w.job).length}</p><p class="muted">Chaque agent vivant reçoit 100 € tous les 30 jours, achète sa nourriture via des ordres en bourse et consomme 1 unité par jour. Après 3 jours sans nourriture, il meurt. Deux adultes ayant chacun au moins 350 € et 2 nourritures peuvent avoir un enfant s'il reste un logement libre. Coût : 100 € et 1 nourriture par parent. L'enfant grandit pendant 2 jours et consomme dès sa naissance.</p>`;$('rivals').innerHTML=AI_IDS.filter(id=>agent(id)).map(id=>{let a=agent(id);return `<div class="item"><b>${a.name}</b> · ${a.buildings.length} bâtiment(s)<p class="muted">💰 ${fmt(a.cash)} € · 🥖 ${fmt(a.stock.food)} · 🌾 ${fmt(a.stock.wheat)} · 🪵 ${fmt(a.stock.wood)} · 🪨 ${fmt(a.stock.ore)}</p></div>`}).join('');$('log').innerHTML=state.log.map(x=>`<p>${x.replaceAll('&','&amp;').replaceAll('<','&lt;')}</p>`).join('')}
  if(current==='save')$('saveInfo').textContent='Version de sauvegarde : '+state.version+' · Jour '+day+' · Dernière sauvegarde locale automatique.'
