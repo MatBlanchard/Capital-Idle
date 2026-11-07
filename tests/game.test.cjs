@@ -108,7 +108,7 @@ test('page Effectifs : bâtiments, salariés et postes vacants',()=>{
  const g=game();g.run("startGame('farm');tab('staff')");
  assert.match(g.ctx.document.getElementById('staffSummary').innerHTML,/0 \/ 3/);
  assert.match(g.ctx.document.getElementById('staffBuildings').innerHTML,/Ferme/);
- g.run("agent('player').buildings[0].wage=60");
+ g.run("agent('player').buildings[0].wage=500");
  const id=g.run("candidates().find(w=>w.qualification==='worker').id");
  g.run("state.workers.find(w=>w.id==='"+id+"').qualification='farmer';hireWorker('player','"+id+"','player-1');tab('staff')");
  assert.match(g.ctx.document.getElementById('staffSummary').innerHTML,/1 \/ 3/);
