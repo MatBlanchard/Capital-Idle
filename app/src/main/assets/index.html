@@ -248,10 +248,14 @@ function hireFromLaborCard(workerId){
  if(!w||!w.alive||w.job||w.managerFor)return toast('Ce travailleur n’est plus disponible');
  if(['hr','trader'].includes(w.qualification))return recruitExecutive(workerId,w.qualification);
  const jobs=a.buildings.filter(b=>ready(b)&&!['school','university'].includes(b.type)&&employedCount(b)<buildingJobs(b)&&(!BUILDING_ROLES[b.type]||BUILDING_ROLES[b.type]===w.qualification));
- const eligible=jobs.filter(b=>b.wage>=w.expectedWage);
- if(!eligible.length)return toast(jobs.length?'Aucune offre assez élevée : salaire demandé '+fmt(w.expectedWage)+' €/jour':'Aucun poste vacant compatible dans vos bâtiments');
- eligible.sort((x,y)=>y.wage-x.wage);
- hirePlayer(workerId,eligible[0].id);
+ if(!jobs.length)return toast('Aucun poste vacant compatible dans vos bâtiments');
+ // Le joueur accepte explicitement le prix demandé en touchant la fiche.
+ // L'offre du bâtiment est relevée si nécessaire ; les salaires déjà négociés restent individuels.
+ jobs.sort((x,y)=>Math.max(0,w.expectedWage-x.wage)-Math.max(0,w.expectedWage-y.wage)||y.wage-x.wage);
+ const b=jobs[0],previousOffer=b.wage;
+ if(b.wage<w.expectedWage)b.wage=w.expectedWage;
+ if(!hireWorker('player',workerId,b.id)){b.wage=previousOffer;return toast('Recrutement impossible : candidat ou poste indisponible')}
+ save();render();toast(w.id+' embauché à '+fmt(w.hiredWage)+' €/jour');
 }
 function hirePlayer(workerId,buildingId){if(!hireWorker('player',workerId,buildingId))return toast('Recrutement impossible : salaire, candidat ou poste insuffisant');save();render()}
 function trainWorker(workerId,role){
