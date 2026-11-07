@@ -228,6 +228,7 @@ function consumeWellbeing(workerId,item){
 }
 function investMachinery(id){const a=agent('player'),b=a.buildings.find(b=>b.id===id);if(!b||!ready(b))return toast('Bâtiment indisponible');const cost=150*(b.machineLevel||1);if(a.cash<cost)return toast('Trésorerie insuffisante : '+cost+' € nécessaires');a.cash=rnd(a.cash-cost);book('player','investment',cost);b.machineLevel=rnd((b.machineLevel||1)+.2);note('Investissement productif : '+b.id+' (efficacité ×'+fmt(b.machineLevel)+')');save();render()}
 function wage(id,delta){let b=agent('player').buildings.find(x=>x.id===id);if(!b)return;b.wage=Math.max(0,rnd(b.wage+delta));save();render()}
+function laborMarketCycle(day){if(day%MONTH_DAYS!==0)return;const unemployed=state.workers.filter(w=>w.alive&&w.adult&&!w.job&&!w.managerFor&&!w.training&&w.schoolStage!=='university');const unemployment=unemployed.length/Math.max(1,state.workers.filter(w=>w.alive&&w.adult).length);for(const w of unemployed){const change=unemployment>.2?-.03:.015;w.expectedWage=rnd(Math.max(8,Math.min(150,w.expectedWage*(1+change))))}for(const w of state.workers){if(!w.alive||!w.job)continue;const current=allBuildings().find(b=>b.id===w.job);if(!current)continue;const alternatives=allBuildings().filter(b=>b.id!==current.id&&ready(b)&&b.type!=='school'&&b.type!=='university'&&employedCount(b)<buildingJobs(b)&&(!BUILDING_ROLES[b.type]||BUILDING_ROLES[b.type]===w.qualification)&&b.wage>=(w.hiredWage??current.wage)*1.2);if(!alternatives.length)continue;const next=alternatives.sort((a,b)=>b.wage-a.wage)[0];if(Math.random()<.1){w.job=next.id;w.hiredWage=Math.max(w.expectedWage,rnd((w.hiredWage??current.wage)*1.1));note(w.id+' change d’employeur pour '+next.id)}}}
 function jobAssignment(){
  // Aucun recrutement spontané. Les contrats existants sont conservés.
  for(const w of state.workers)if(!w.alive||!w.adult){w.job=null;w.managerFor=null}
@@ -342,7 +343,7 @@ function daily(){
  }
  if(starved)note(starved+' habitant(s) mort(s) de faim');
  if(natural)note(natural+' décès liés à la mortalité naturelle');
- jobAssignment();trainingCycle();schoolingCycle(day);housingCycle();immigration(day);
+ jobAssignment();trainingCycle();schoolingCycle(day);laborMarketCycle(day);housingCycle();immigration(day);
  reproduce(day);workerPurchases(day);jobAssignment();aiCycle();
 }
 function immigration(day){
