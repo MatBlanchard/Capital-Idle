@@ -326,8 +326,9 @@ function workerPurchases(day){
   }
  }
 }
+function companySolvencyCycle(day){if(day===0)return;for(const id of AI_IDS){const a=agent(id);if(!a||!a.alive)continue;if(a.cash<1&&a.buildings.length){a.insolventMonths=(a.insolventMonths||0)+1;}else a.insolventMonths=0;if(a.insolventMonths<3)continue;const b=a.buildings.pop();if(!b)continue;const buyer=Object.values(state.agents).filter(x=>x.alive&&x.id!==id&&x.kind!=='public'&&x.cash>=200).sort((x,y)=>y.cash-x.cash)[0];for(const w of state.workers.filter(w=>w.job===b.id)){w.job=null;delete w.hiredWage}if(buyer){buyer.cash=rnd(buyer.cash-200);a.cash=rnd(a.cash+200);buyer.buildings.push(b);note(a.name+' cède '+TYPES[b.type].name+' à '+buyer.name+' pour 200 €')}else{note(a.name+' ferme '+TYPES[b.type].name+' après insolvabilité')}a.insolventMonths=0;}}
 function daily(){
- let day=Math.floor(state.gameMs/DAY_MS);if(day%MONTH_DAYS===0){repayLoans();const bank=centralBank();bank.ubiIssued=rnd(bank.ubiIssued+100*(Object.values(state.agents).filter(a=>a.alive).length+state.workers.filter(w=>w.alive).length));for(const a of Object.values(state.agents))if(a.alive)a.cash=rnd(a.cash+100);for(const w of state.workers)if(w.alive)w.cash=rnd(w.cash+100);note('Mois '+(day/MONTH_DAYS+1)+' : revenu de base +100 € par agent vivant')}
+ let day=Math.floor(state.gameMs/DAY_MS);if(day%MONTH_DAYS===0){companySolvencyCycle(day);repayLoans();const bank=centralBank();bank.ubiIssued=rnd(bank.ubiIssued+100*(Object.values(state.agents).filter(a=>a.alive).length+state.workers.filter(w=>w.alive).length));for(const a of Object.values(state.agents))if(a.alive)a.cash=rnd(a.cash+100);for(const w of state.workers)if(w.alive)w.cash=rnd(w.cash+100);note('Mois '+(day/MONTH_DAYS+1)+' : revenu de base +100 € par agent vivant')}
  let starved=0,natural=0;
  for(const w of state.workers){
   if(!w.alive)continue;
@@ -336,7 +337,7 @@ function daily(){
   w.alcoholExposure=Math.max(0,(w.alcoholExposure||0)-.0003);
   w.tobaccoExposure=Math.max(0,(w.tobaccoExposure||0)-.0002);
   if(!w.adult&&w.food<1)for(const id of w.parentIds){const parent=state.workers.find(p=>p.id===id&&p.alive&&p.food>=1);if(parent){parent.food=rnd(parent.food-1);w.food=rnd(w.food+1);break}}
-  w.happiness=Math.max(0,(w.happiness??50)-.05);
+  w.happiness=Math.max(0,(w.happiness??50)-.05);if(w.cash<20)w.happiness=Math.max(0,w.happiness-.15);
   w.hunger=Math.max(0,(w.hunger??100)-3);
   if(w.food>=1){w.food=rnd(w.food-1);w.hunger=Math.min(100,w.hunger+4)}
   if(w.hunger<=0){w.alive=false;w.job=null;starved++;cancelWorkerOrders(w.id)}
