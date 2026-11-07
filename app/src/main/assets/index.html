@@ -11,7 +11,7 @@ const $=id=>document.getElementById(id),rnd=n=>Math.round(n*100)/100,fmt=n=>(Num
 let state,current='world',toastTimer,mapX=0,mapY=0;
 let mapDrag=null,suppressMapClick=false;
 const PRODUCTIVITY=[0.7,0.85,1,1.15,1.3];
-function initWorker(w,i=0){w.productivity ??= PRODUCTIVITY[i%5];w.expectedWage ??= 15+(i%7)*5;w.qualification ??= 'worker';w.training ??= null;w.schoolRole ??= null;w.primaryDiploma ??= (w.qualification!=='worker');w.happiness ??= 50;w.educationLevel ??= 'none';w.smokingProfile ??= 'none';w.alcoholProfile ??= 'none';w.hunger ??= 100;w.alcoholExposure ??= 0;w.tobaccoExposure ??= 0;w.lastConsumerDay ??= -1;w.bornDay ??= -25*YEAR_DAYS;w.parentIds ??= [];w.partnerId ??= null;w.children ??= [];return w}
+function initWorker(w,i=0){w.productivity ??= PRODUCTIVITY[i%5];w.expectedWage ??= 15+(i%7)*5;w.qualification ??= 'worker';w.training ??= null;w.schoolRole ??= null;w.primaryDiploma ??= (w.qualification!=='worker');w.happiness ??= 50;w.educationLevel ??= 'none';w.smokingProfile ??= 'none';w.alcoholProfile ??= 'none';w.hunger ??= 100;w.schoolScore ??= Math.floor(Math.random()*101);w.schoolYears ??= 0;w.schoolStage ??= 'none';w.alcoholExposure ??= 0;w.tobaccoExposure ??= 0;w.lastConsumerDay ??= -1;w.bornDay ??= -25*YEAR_DAYS;w.parentIds ??= [];w.partnerId ??= null;w.children ??= [];return w}
 function initAgent(a){a.stock ||= {};for(const item of Object.keys(ITEMS))a.stock[item] ??= 0;a.managers ??= {hr:[],trader:[]};a.tradePolicies ??= {};return a}
 function canHire(a){return !!a.managers?.hr?.length}
 function canTrade(a){return !!a.managers?.trader?.length}
@@ -45,6 +45,7 @@ function sampleFrenchPopulation(workers){
   const r=i/shuffled.length;
   w.educationLevel=r<.153?'none':r<.360?'vocational':r<.551?'baccalaureate':'higher';
   w.primaryDiploma=w.educationLevel!=='none';
+  if(w.educationLevel==='none'&&i%4!==0){w.educationLevel='vocational';w.primaryDiploma=true;}
   if(w.educationLevel==='vocational'||w.educationLevel==='baccalaureate'){
    const jobs=['farmer','baker','miner','lumberjack','tailor','brewer','distiller','tobacconist'];
    w.qualification=jobs[i%jobs.length];
@@ -52,7 +53,9 @@ function sampleFrenchPopulation(workers){
    const roles=['hr','trader','teacher','principal','professor'];
    w.qualification=roles[i%roles.length];
   }
+  w.schoolScore=Math.floor(Math.random()*101);
  });
+ workers.filter(w=>!w.adult).forEach(w=>{w.schoolScore=Math.floor(Math.random()*101);w.schoolStage='primary';});
  // Baromètre Santé publique France 2024 : 18,2 % fumeurs quotidiens, 25 % tous fumeurs.
  const smokers=[...adults.filter(w=>-w.bornDay/YEAR_DAYS<=75)].sort(()=>Math.random()-.5);
  smokers.forEach((w,i)=>{const r=i/smokers.length;w.smokingProfile=r<.182?'daily':r<.25?'occasional':'none'});
@@ -245,6 +248,14 @@ function trainWorker(workerId,role){
  if(higher&&(!w.primaryDiploma||!allBuildings().some(b=>b.type==='university'&&ready(b))||availableUniversitySeats()<=0))return toast('Diplôme primaire, université et professeur universitaire nécessaires');
  a.cash=rnd(a.cash-50);w.training={owner:'player',role,level:primary?'primary':'university',days:primary?YEAR_DAYS:2*YEAR_DAYS};note('Formation '+ROLE_NAMES[role]+' commencée pour '+w.id+' ('+(primary?'1 an':'2 ans')+')');save();render();return true;
 }
+function schoolingCycle(day){
+ // Scolarité publique automatique : les enfants progressent jusqu'à 18 ans.
+ for(const w of state.workers){if(!w.alive||w.adult)continue;
+  const age=(day-w.bornDay)/YEAR_DAYS;if(age<6)continue;
+  w.schoolStage='primary';w.schoolYears=(w.schoolYears||0)+1/YEAR_DAYS;
+  if(w.schoolYears>=10&&!w.primaryDiploma){w.primaryDiploma=true;w.qualification=['farmer','baker','miner','lumberjack','tailor','brewer','distiller','tobacconist'][Math.floor(Math.random()*8)];w.educationLevel='vocational';}
+ }
+}
 function trainingCycle(){
  for(const w of state.workers){if(!w.alive||!w.training)continue;w.training.days--;
  if(w.training.days<=0){w.qualification=w.training.role;if(w.training.level!=='university')w.primaryDiploma=true;note(w.id+' diplômé : '+(ROLE_NAMES[w.qualification]||w.qualification));w.training=null}}
@@ -315,7 +326,7 @@ function daily(){
  let starved=0,natural=0;
  for(const w of state.workers){
   if(!w.alive)continue;
-  if(!w.adult&&day-w.bornDay>=ADULT_AGE_DAYS){w.adult=true;note(w.id+' atteint 18 ans et peut travailler')}
+  if(!w.adult&&day-w.bornDay>=ADULT_AGE_DAYS){w.adult=true;if(w.primaryDiploma&&w.schoolScore>=70){w.educationLevel='higher';w.qualification=['hr','trader','teacher','principal','professor'][Math.floor(Math.random()*5)];w.schoolStage='university';}else if(w.primaryDiploma)w.schoolStage='graduated';note(w.id+' atteint 18 ans et peut travailler')}
   if(Math.random()<mortalityProbability(w)){w.alive=false;w.job=null;natural++;cancelWorkerOrders(w.id);continue}
   w.alcoholExposure=Math.max(0,(w.alcoholExposure||0)-.0003);
   w.tobaccoExposure=Math.max(0,(w.tobaccoExposure||0)-.0002);
@@ -327,7 +338,7 @@ function daily(){
  }
  if(starved)note(starved+' habitant(s) mort(s) de faim');
  if(natural)note(natural+' décès liés à la mortalité naturelle');
- jobAssignment();trainingCycle();housingCycle();immigration(day);
+ jobAssignment();trainingCycle();schoolingCycle(day);housingCycle();immigration(day);
  reproduce(day);workerPurchases(day);jobAssignment();aiCycle();
 }
 function immigration(day){
@@ -362,7 +373,8 @@ function reproduce(day){
   a.cash=rnd(a.cash-100);b.cash=rnd(b.cash-100);
   a.food=rnd(a.food-1);b.food=rnd(b.food-1);
   a.lastBirth=day;b.lastBirth=day;
-  const child=initWorker({id:'w'+state.nextWorker++,home:a.home,cash:100,food:2,hunger:100,health:3,job:null,alive:true,bornDay:day,lastBirth:day,adult:false,parentIds:[a.id,b.id]});
+  const inheritedScore=Math.max(0,Math.min(100,Math.round(((a.schoolScore??50)+(b.schoolScore??50))/2+(Math.random()-.5)*30)));
+  const child=initWorker({schoolScore:inheritedScore,schoolStage:'primary',id:'w'+state.nextWorker++,home:a.home,cash:100,food:2,hunger:100,health:3,job:null,alive:true,bornDay:day,lastBirth:day,adult:false,parentIds:[a.id,b.id]});
   a.children.push(child.id);b.children.push(child.id);state.workers.push(child);births++;state.births++;
  }
  if(births)note(births+' naissance(s) : enfants à charge jusqu’à 18 ans');
