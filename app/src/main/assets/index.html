@@ -45,7 +45,7 @@ function sampleFrenchPopulation(workers){
   const r=i/shuffled.length;
   w.educationLevel=r<.153?'none':r<.360?'vocational':r<.551?'baccalaureate':'higher';
   w.primaryDiploma=w.educationLevel!=='none';
-  if(w.educationLevel==='none'&&i%4!==0){w.educationLevel='vocational';w.primaryDiploma=true;}
+  if(i%10<7){w.educationLevel='vocational';w.primaryDiploma=true;}
   if(w.educationLevel==='vocational'||w.educationLevel==='baccalaureate'){
    const jobs=['farmer','baker','miner','lumberjack','tailor','brewer','distiller','tobacconist'];
    w.qualification=jobs[i%jobs.length];
@@ -250,7 +250,9 @@ function trainWorker(workerId,role){
 }
 function schoolingCycle(day){
  // Scolarité publique automatique : les enfants progressent jusqu'à 18 ans.
- for(const w of state.workers){if(!w.alive||w.adult)continue;
+ for(const w of state.workers){if(!w.alive)continue;
+  if(w.adult&&w.schoolStage==='university'){w.universityDays=Math.max(0,(w.universityDays??2*YEAR_DAYS)-1);if(w.universityDays===0){w.educationLevel='higher';w.qualification=['hr','trader','teacher','principal','professor'][Math.floor(Math.random()*5)];w.schoolStage='graduated';note(w.id+' termine ses études universitaires')}}
+  if(w.adult)continue;
   const age=(day-w.bornDay)/YEAR_DAYS;if(age<6)continue;
   w.schoolStage='primary';w.schoolYears=(w.schoolYears||0)+1/YEAR_DAYS;
   if(w.schoolYears>=10&&!w.primaryDiploma){w.primaryDiploma=true;w.qualification=['farmer','baker','miner','lumberjack','tailor','brewer','distiller','tobacconist'][Math.floor(Math.random()*8)];w.educationLevel='vocational';}
@@ -326,7 +328,7 @@ function daily(){
  let starved=0,natural=0;
  for(const w of state.workers){
   if(!w.alive)continue;
-  if(!w.adult&&day-w.bornDay>=ADULT_AGE_DAYS){w.adult=true;if(w.primaryDiploma&&w.schoolScore>=70){w.educationLevel='higher';w.qualification=['hr','trader','teacher','principal','professor'][Math.floor(Math.random()*5)];w.schoolStage='university';}else if(w.primaryDiploma)w.schoolStage='graduated';note(w.id+' atteint 18 ans et peut travailler')}
+  if(!w.adult&&day-w.bornDay>=ADULT_AGE_DAYS){w.adult=true;if(w.primaryDiploma&&w.schoolScore>=70){w.schoolStage='university';w.universityDays=2*YEAR_DAYS;}else if(w.primaryDiploma)w.schoolStage='graduated';note(w.id+' atteint 18 ans et peut travailler')}
   if(Math.random()<mortalityProbability(w)){w.alive=false;w.job=null;natural++;cancelWorkerOrders(w.id);continue}
   w.alcoholExposure=Math.max(0,(w.alcoholExposure||0)-.0003);
   w.tobaccoExposure=Math.max(0,(w.tobaccoExposure||0)-.0002);
