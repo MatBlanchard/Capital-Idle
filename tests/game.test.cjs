@@ -126,7 +126,7 @@ test('école : deux postes distincts, professeur et proviseur',()=>{
 test('marché du travail : candidats sans emploi et hors formation',()=>{
  const g=game();g.run("startGame('farm');tab('labor')");
  const available=g.run("candidates().length");
- assert.match(g.ctx.document.getElementById('laborBoard').innerHTML,new RegExp(available+' candidats affichés'));
+ assert.match(g.ctx.document.getElementById('laborSummary').innerHTML,new RegExp(available+' candidats affichés'));
  assert.equal(g.run("candidates().every(w=>!w.job&&!w.managerFor&&!w.training&&!w.schoolRole)"),true);
 });
 
