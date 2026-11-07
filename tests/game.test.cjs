@@ -203,7 +203,7 @@ test('ferme produit du blé et boulangerie transforme deux blés en un pain',()=
  assert.equal(g.run("TYPES.bakery.out"),'food');
  assert.equal(g.run("TYPES.bakery.input"),'wheat');
  const before=g.run("agent('moulin').stock.food");
- g.run("state.workers.filter(w=>w.job==='moulin-1').forEach(w=>w.job=null);agent('moulin').stock.wheat=20;agent('moulin').cash=1000;state.workers.push(initWorker({id:'w-baker',home:0,cash:100,food:3,health:3,job:'moulin-1',alive:true,adult:true,productivity:1,expectedWage:10}));simulate(DAY_MS/2)");
+ g.run("state.workers.filter(w=>w.job==='moulin-1').forEach(w=>w.job=null);state.bakeryContracts=[];agent('moulin').stock.wheat=20;agent('moulin').cash=1000;state.workers.push(initWorker({id:'w-baker',home:0,cash:100,food:3,health:3,job:'moulin-1',alive:true,adult:true,productivity:1,expectedWage:10}));simulate(DAY_MS/2)");
  assert.equal(g.run("agent('moulin').stock.food"),before+4);
  assert.equal(g.run("agent('moulin').stock.wheat"),12);
 });
