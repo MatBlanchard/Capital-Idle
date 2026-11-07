@@ -218,7 +218,8 @@ test('primaire requis pour une formation universitaire',()=>{
  const g=game();g.run("startGame('farm');agent('player').cash=500");
  assert.equal(g.run("activeSchoolStaff('professor').length"),1);
  assert.equal(g.run("availableUniversitySeats()"),2);
- const id=g.run("candidates().find(w=>!w.primaryDiploma).id");
+ const id=g.run("candidates()[0].id");
+ g.run("state.workers.find(w=>w.id===\'"+id+"\').primaryDiploma=false");
  assert.notEqual(g.run("trainWorker('"+id+"','hr')"),true);
  assert.equal(g.run("trainWorker('"+id+"','farmer')"),true);
  g.run("state.workers.filter(w=>w.training).forEach(w=>w.training.days=1);trainingCycle()");
@@ -228,7 +229,8 @@ test('primaire requis pour une formation universitaire',()=>{
 
 test('formation ouvrière de 360 jours et cadre de 720 jours',()=>{
  const g=game();g.run("startGame('farm');agent('player').cash=500");
- const id=g.run("candidates().find(w=>!w.primaryDiploma).id");
+ const id=g.run("candidates()[0].id");
+ g.run("state.workers.find(w=>w.id===\'"+id+"\').primaryDiploma=false");
  assert.equal(g.run("trainWorker('"+id+"','farmer')"),true);
  assert.equal(g.run("state.workers.find(w=>w.id==='"+id+"').training.days"),360);
  g.run("state.workers.find(w=>w.id==='"+id+"').training.days=1;trainingCycle()");
