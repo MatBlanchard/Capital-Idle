@@ -15,7 +15,7 @@ function initWorker(w,i=0){w.productivity ??= PRODUCTIVITY[i%5];w.expectedWage ?
 function initAgent(a){a.stock ||= {};for(const item of Object.keys(ITEMS))a.stock[item] ??= 0;a.managers ??= {hr:[],trader:[]};a.tradePolicies ??= {};return a}
 function canHire(a){return !!a.managers?.hr?.length}
 function canTrade(a){return !!a.managers?.trader?.length}
-function candidates(){return state.workers.filter(w=>w.alive&&w.adult&&!w.job&&!w.managerFor&&!w.training&&!w.schoolRole)}
+function candidates(){return state.workers.filter(w=>w.alive&&w.adult&&!w.job&&!w.managerFor&&!w.training&&!w.schoolRole&&w.schoolStage!=='university')}
 function employedCount(b){return state.workers.filter(w=>w.alive&&w.job===b.id).length}
 function ready(b){return !b.readyAt||state.gameMs>=b.readyAt}
 function finishConstruction(){for(const a of Object.values(state.agents))for(const b of a.buildings)if(b.readyAt&&state.gameMs>=b.readyAt){delete b.readyAt;note(a.name+' : '+TYPES[b.type].name+' terminé(e)')}}
@@ -251,10 +251,10 @@ function trainWorker(workerId,role){
 function schoolingCycle(day){
  // Scolarité publique automatique : les enfants progressent jusqu'à 18 ans.
  for(const w of state.workers){if(!w.alive)continue;
-  if(w.adult&&w.schoolStage==='university'){w.universityDays=Math.max(0,(w.universityDays??2*YEAR_DAYS)-1);if(w.universityDays===0){w.educationLevel='higher';w.qualification=['hr','trader','teacher','principal','professor'][Math.floor(Math.random()*5)];w.schoolStage='graduated';note(w.id+' termine ses études universitaires')}}
+  if(w.adult&&w.schoolStage==='university'&&allBuildings().some(b=>b.type==='university'&&ready(b))){w.universityDays=Math.max(0,(w.universityDays??2*YEAR_DAYS)-1);if(w.universityDays===0){w.educationLevel='higher';w.qualification=['hr','trader','teacher','principal','professor'][Math.floor(Math.random()*5)];w.schoolStage='graduated';note(w.id+' termine ses études universitaires')}}
   if(w.adult)continue;
   const age=(day-w.bornDay)/YEAR_DAYS;if(age<6)continue;
-  w.schoolStage='primary';w.schoolYears=(w.schoolYears||0)+1/YEAR_DAYS;
+  if(!allBuildings().some(b=>b.type==='school'&&ready(b)))continue;w.schoolStage='primary';w.schoolYears=(w.schoolYears||0)+1/YEAR_DAYS;
   if(w.schoolYears>=10&&!w.primaryDiploma){w.primaryDiploma=true;w.qualification=['farmer','baker','miner','lumberjack','tailor','brewer','distiller','tobacconist'][Math.floor(Math.random()*8)];w.educationLevel='vocational';}
  }
 }
