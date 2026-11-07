@@ -21,7 +21,7 @@ test('sauvegarde initiale et migration v5',()=>{
 });
 test('recrutement manuel autorisé sans responsable RH',()=>{
  const g=game();g.run("startGame('farm')");
- g.run("state.agents.player.buildings[0].wage=60");
+ g.run("state.agents.player.buildings[0].wage=500");
  g.run("candidates()[0].qualification='farmer'");assert.equal(g.run("hireWorker('player',candidates()[0].id,'player-1')"),true);
 });
 test('école, formation et recrutement après diplôme',()=>{
@@ -32,7 +32,7 @@ test('école, formation et recrutement après diplôme',()=>{
  assert.equal(g.run("state.workers.some(w=>w.qualification==='hr')"),true);
  g.run("appointManager(state.workers.find(w=>w.qualification==='hr'&&!w.managerFor).id,'hr')");
  assert.equal(g.run("canHire(agent('player'))"),true);
- g.run("state.agents.player.buildings[0].wage=60;state.workers.push(initWorker({id:'w-school-test',qualification:'farmer',home:0,cash:100,food:3,health:3,job:null,alive:true,adult:true,expectedWage:10,productivity:1}))");
+ g.run("state.agents.player.buildings[0].wage=500;state.workers.push(initWorker({id:'w-school-test',qualification:'farmer',home:0,cash:100,food:3,health:3,job:null,alive:true,adult:true,expectedWage:10,productivity:1}))");
  assert.equal(g.run("hireWorker('player','w-school-test','player-1')"),true);
 });
 test('ordre boursier et matching compatibles',()=>{
@@ -44,7 +44,7 @@ test('ordre boursier et matching compatibles',()=>{
 });
 test('production dépend de la productivité',()=>{
  const g=game();g.run("startGame('farm')");
- g.run("state.agents.player.buildings[0].wage=60;agent('player').managers.hr.push('w-test-productivity');state.workers.push(initWorker({id:'w-test-productivity',home:0,cash:100,food:3,health:3,job:null,alive:true,adult:true,expectedWage:10,productivity:1.3,qualification:'farmer'}));");
+ g.run("state.agents.player.buildings[0].wage=500;agent('player').managers.hr.push('w-test-productivity');state.workers.push(initWorker({id:'w-test-productivity',home:0,cash:100,food:3,health:3,job:null,alive:true,adult:true,expectedWage:10,productivity:1.3,qualification:'farmer'}));");
  g.run("hireWorker('player','w-test-productivity','player-1')");
  const before=g.run("agent('player').stock.wheat");g.run("simulate(150000)");
  assert.ok(g.run("agent('player').stock.wheat")>before);
@@ -52,7 +52,7 @@ test('production dépend de la productivité',()=>{
 
 test('RH automatise le recrutement du joueur sur les postes vacants',()=>{
  const g=game();g.run("startGame('farm')");
- g.run("state.agents.player.buildings[0].wage=60");
+ g.run("state.agents.player.buildings[0].wage=500");
  assert.equal(g.run("canHire(agent('player'))"),false);
  assert.equal(g.run("state.workers.filter(w=>w.job==='player-1').length"),0);
  g.run("agent('player').managers.hr.push('w-test-productivity9');state.workers.push(initWorker({id:'w-test-productivity9',home:0,cash:100,food:3,health:3,job:null,alive:true,adult:true,managerFor:'player',managerRole:'hr',qualification:'hr'}));");
